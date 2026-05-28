@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Sparkles, Copy, Check } from "lucide-react";
+import { ArrowLeft, Sparkles, Copy, Check, Heart, Wand2 } from "lucide-react";
+import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/storage";
 
 const scenarios = [
   { id: "holiday", label: "放假通知", desc: "节假日放假安排通知" },
@@ -19,6 +20,11 @@ export default function GenerateNoticePage() {
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [lastId, setLastId] = useState<string | null>(null);
+  const [favorited, setFavorited] = useState(false);
+  const [showOptimize, setShowOptimize] = useState(false);
+  const [optimizeInput, setOptimizeInput] = useState("");
+  const [optimizing, setOptimizing] = useState(false);
 
   const handleGenerate = async () => {
     if (!input.trim()) return;
@@ -26,6 +32,7 @@ export default function GenerateNoticePage() {
 
     await new Promise((r) => setTimeout(r, 1500));
 
+    const scenario = scenarios.find((s) => s.id === selectedScenario);
     const mockResult = `各位家长好：
 
 根据学校统一安排，现将近期有关事项通知如下：
@@ -41,7 +48,28 @@ ${selectedScenario === "holiday" ? "祝大家假期愉快！" : ""}
 ${new Date().toLocaleDateString("zh-CN")}`;
 
     setResult(mockResult);
+    setShowOptimize(false);
+    setOptimizeInput("");
     setGenerating(false);
+
+    const id = generateId();
+    saveItem({
+      id,
+      title: `通知·${scenario?.label || ""}`,
+      type: "通知",
+      typeColor: "bg-orange-50 text-orange-600",
+      content: mockResult,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      favorited: false,
+    });
+    setLastId(id);
+  };
+
+  const handleFavorite = () => {
+    if (!lastId) return;
+    toggleFavorite(lastId);
+    setFavorited(!favorited);
   };
 
   const handleCopy = async () => {
@@ -49,6 +77,21 @@ ${new Date().toLocaleDateString("zh-CN")}`;
     await navigator.clipboard.writeText(result);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleOptimize = async () => {
+    if (!result || !optimizeInput.trim() || !lastId) return;
+    setOptimizing(true);
+    await new Promise((r) => setTimeout(r, 1500));
+    const newResult = result + `\n\n（已根据要求优化：${optimizeInput}）\n优化后的内容将在接入 AI API 后生成。`;
+    setResult(newResult);
+    const existing = getSavedItems().find((i) => i.id === lastId);
+    if (existing) {
+      saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
+    }
+    setShowOptimize(false);
+    setOptimizeInput("");
+    setOptimizing(false);
   };
 
   return (
@@ -69,7 +112,6 @@ ${new Date().toLocaleDateString("zh-CN")}`;
       </div>
 
       <div className="card p-5 mb-6 space-y-5">
-        {/* Scenario */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
             通知场景
@@ -99,7 +141,6 @@ ${new Date().toLocaleDateString("zh-CN")}`;
 
         <div className="border-t border-gray-100" />
 
-        {/* Details */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
             通知关键信息
@@ -152,23 +193,68 @@ ${new Date().toLocaleDateString("zh-CN")}`;
         <div className="card p-6 animate-fade-in">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-900">生成结果</h2>
-            <button
-              onClick={handleCopy}
-              className="btn-ghost flex items-center gap-1.5 text-xs"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-green-500" />
-                  <span className="text-green-500">已复制</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" />
-                  一键复制
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowOptimize(!showOptimize)}
+                className={`btn-ghost flex items-center gap-1.5 text-xs ${showOptimize ? "text-indigo-500" : ""}`}
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                继续优化
+              </button>
+              <button
+                onClick={handleFavorite}
+                className={`btn-ghost flex items-center gap-1.5 text-xs ${favorited ? "text-red-400" : ""}`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${favorited ? "fill-current" : ""}`} />
+                {favorited ? "已收藏" : "收藏"}
+              </button>
+              <button
+                onClick={handleCopy}
+                className="btn-ghost flex items-center gap-1.5 text-xs"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-green-500" />
+                    <span className="text-green-500">已复制</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    一键复制
+                  </>
+                )}
+              </button>
+            </div>
           </div>
+          {showOptimize && (
+            <div className="mb-4 p-4 bg-indigo-50 rounded-lg">
+              <label className="block text-xs font-medium text-indigo-700 mb-2">
+                输入优化要求
+              </label>
+              <textarea
+                value={optimizeInput}
+                onChange={(e) => setOptimizeInput(e.target.value)}
+                placeholder="例如：语气更正式一些，增加安全注意事项的详细描述"
+                className="w-full min-h-[80px] resize-none text-sm text-gray-800 placeholder-gray-400 outline-none bg-white rounded-lg p-3 border border-indigo-200 focus:border-indigo-400"
+              />
+              <div className="flex items-center justify-end gap-2 mt-2">
+                <button
+                  onClick={() => { setShowOptimize(false); setOptimizeInput(""); }}
+                  className="btn-ghost text-xs"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleOptimize}
+                  disabled={optimizing || !optimizeInput.trim()}
+                  className={`btn-primary text-xs flex items-center gap-1.5 py-1.5 px-4 ${optimizing || !optimizeInput.trim() ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <Wand2 className="w-3 h-3" />
+                  {optimizing ? "优化中..." : "提交优化"}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
             {result}
           </div>

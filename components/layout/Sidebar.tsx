@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, GraduationCap, MessageCircle } from "lucide-react";
+import { Home, Zap, FolderOpen, GraduationCap, MessageCircle } from "lucide-react";
 
 const navItems = [
   { label: "首页", href: "/workspace", icon: Home },
   { label: "核心技能", href: "/assistant", icon: Zap },
+  { label: "我的资产库", href: "/assets", icon: FolderOpen },
 ];
 
 const bottomItems = [
@@ -35,7 +36,7 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(({ label, href, icon: Icon }) => {
           const isActive =
-            pathname === href || (href === "/assistant" && pathname === "/");
+            pathname === href || (href === "/assistant" && pathname === "/") || (href === "/assets" && pathname.startsWith("/assets"));
           return (
             <Link
               key={href}

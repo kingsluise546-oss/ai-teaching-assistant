@@ -9,9 +9,19 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-const skillGroups = [
+interface SkillItem {
+  label: string;
+  desc: string;
+  href: string;
+  icon: typeof BookOpen;
+  color: string;
+  bg: string;
+  disabled?: boolean;
+}
+
+const skillGroups: { title: string; items: SkillItem[] }[] = [
   {
-    title: "🧠 教学准备",
+    title: "教学准备",
     items: [
       {
         label: "备课助手",
@@ -32,7 +42,7 @@ const skillGroups = [
     ],
   },
   {
-    title: "🧠 学生评价",
+    title: "学生评价",
     items: [
       {
         label: "评语助手",
@@ -45,7 +55,7 @@ const skillGroups = [
     ],
   },
   {
-    title: "🧠 教学沟通",
+    title: "教学沟通",
     items: [
       {
         label: "通知模板生成",
@@ -58,7 +68,7 @@ const skillGroups = [
     ],
   },
   {
-    title: "📊 教学分析",
+    title: "教学分析",
     items: [
       {
         label: "成绩分析",

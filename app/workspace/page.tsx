@@ -1,12 +1,31 @@
 "use client";
 
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Clock, ChevronRight, Lightbulb } from "lucide-react";
-import { recentWorkItems } from "@/lib/mockData";
+import { getSavedItems, type SavedItem } from "@/lib/storage";
 
 export default function HomePage() {
+  const router = useRouter();
+  const [items, setItems] = useState<SavedItem[]>([]);
+
+  useEffect(() => {
+    setItems(getSavedItems());
+  }, []);
+
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "早上好" : hour < 18 ? "下午好" : "晚上好";
+
+  const timeAgo = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}分钟前`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}小时前`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}天前`;
+    return `${Math.floor(days / 30)}月前`;
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-8 py-10 space-y-10">
@@ -22,11 +41,10 @@ export default function HomePage() {
             </p>
           </div>
           {/* 今日概况 */}
-          <div className="hidden sm:flex items-center gap-2 text-xs text-gray-400 bg-white rounded-xl border border-gray-100 px-4 py-2.5 flex-shrink-0">
-            <span className="text-gray-500 font-medium">今日</span>
-            <span className="text-blue-500 font-semibold">0</span> 生成
-            <span className="text-gray-200">|</span>
-            <span className="text-indigo-500 font-semibold">0</span> 收藏
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400 bg-white rounded-xl border border-gray-100 px-4 py-2.5 flex-shrink-0">
+            <span className="text-gray-500 font-medium">共</span>
+            <span className="text-indigo-500 font-semibold">{items.length}</span>
+            <span className="text-gray-400">条记录</span>
           </div>
         </div>
         <div className="mt-4 flex items-center gap-3">
@@ -41,36 +59,42 @@ export default function HomePage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-gray-900">最近工作</h2>
-          <span className="text-xs text-gray-300">共 {recentWorkItems.length} 项</span>
+          <span className="text-xs text-gray-300">共 {items.length} 项</span>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          {recentWorkItems.map((item) => (
-            <div key={item.id} className="card p-5 group flex flex-col">
-              <div className="flex items-start justify-between mb-3">
-                <span
-                  className={`text-xs font-medium px-2.5 py-1 rounded-full ${item.typeColor}`}
-                >
-                  {item.type}
-                </span>
-                <div className="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
-                  <Clock className="w-3 h-3" />
-                  {item.updatedAt}
+        {items.length === 0 ? (
+          <div className="card p-10 text-center">
+            <p className="text-sm text-gray-300">还没有保存的内容，去「核心技能」生成你的第一份教案吧</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-4">
+            {items.slice(0, 6).map((item) => (
+              <div key={item.id} className="card p-5 group flex flex-col cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push(`/result?id=${item.id}`)}>
+                <div className="flex items-start justify-between mb-3">
+                  <span
+                    className={`text-xs font-medium px-2.5 py-1 rounded-full ${item.typeColor}`}
+                  >
+                    {item.type}
+                  </span>
+                  <div className="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
+                    <Clock className="w-3 h-3" />
+                    {timeAgo(item.updatedAt)}
+                  </div>
+                </div>
+                <h3 className="font-medium text-gray-900 text-sm leading-snug mb-2">
+                  {item.title}
+                </h3>
+                <p className="text-xs text-gray-400 leading-relaxed line-clamp-2 flex-1">
+                  {item.content.replace(/[#*【】\n]/g, "").slice(0, 60)}...
+                </p>
+                <div className="mt-4 pt-3 border-t border-gray-50">
+                  <span className="text-xs font-medium text-indigo-500 hover:text-indigo-600 flex items-center gap-1 transition-colors cursor-pointer">
+                    查看详情 <ChevronRight className="w-3.5 h-3.5" />
+                  </span>
                 </div>
               </div>
-              <h3 className="font-medium text-gray-900 text-sm leading-snug mb-2">
-                {item.title}
-              </h3>
-              <p className="text-xs text-gray-400 leading-relaxed line-clamp-2 flex-1">
-                {item.summary}
-              </p>
-              <div className="mt-4 pt-3 border-t border-gray-50">
-                <span className="text-xs font-medium text-indigo-500 hover:text-indigo-600 flex items-center gap-1 transition-colors cursor-pointer">
-                  继续编辑 <ChevronRight className="w-3.5 h-3.5" />
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 教学小贴士 */}
