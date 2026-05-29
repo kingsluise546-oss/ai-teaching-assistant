@@ -5,64 +5,76 @@ import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { ArrowLeft, Sparkles, Copy, Check, Heart, Wand2 } from "lucide-react";
 import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/storage";
+import { callAI } from "@/lib/ai";
+import { generateQuestionsPrompt, optimizePrompt } from "@/lib/prompts";
+import { detectStage, getAvailableTypes, Stage } from "@/lib/questionTypes";
+import { getRegisteredTypes, isRuleRegistered } from "@/lib/questionRules";
 
 export default function GenerateQuestionsPage() {
   const router = useRouter();
-  const [input, setInput] = useState("");
+  const [subject, setSubject] = useState("语文");
+  const [grade, setGrade] = useState("");
+  const [topic, setTopic] = useState("");
+  const [qtype, setQtype] = useState("");
+  const [difficulty, setDifficulty] = useState("中等");
+  const [count, setCount] = useState(5);
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [lastId, setLastId] = useState<string | null>(null);
   const [favorited, setFavorited] = useState(false);
   const [showOptimize, setShowOptimize] = useState(false);
+
+  // 路由系统：年级 → 学段 → 可选题型
+  const stage: Stage | null = grade.trim() ? detectStage(grade.trim()) : null;
+  const allTypes = stage ? getAvailableTypes(stage, subject as any) : [];
+  const registeredTypes = stage ? getRegisteredTypes(stage, subject as any) : [];
+  const availableTypes = qtype.trim()
+    ? allTypes.filter(t => t.includes(qtype.trim()))
+    : allTypes;
+  const selectedTypeRegistered = qtype.trim() && stage ? isRuleRegistered(stage, subject as any, qtype.trim()) : true;
   const [optimizeInput, setOptimizeInput] = useState("");
   const [optimizing, setOptimizing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
-    if (!input.trim()) return;
+    if (!grade.trim()) return;
     setGenerating(true);
+    setError(null);
 
-    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      const prompt = generateQuestionsPrompt({
+        subject,
+        grade: grade.trim(),
+        topic: topic.trim(),
+        type: qtype.trim(),
+        difficulty,
+        count,
+      });
+      const content = await callAI(prompt);
+      setResult(content);
+      setShowOptimize(false);
+      setOptimizeInput("");
 
-    const mockResult = `## 基础巩固
-1. 下列词语中加点字的读音全部正确的一项是（  ）
-   A. 示例（A）
-   B. 示例（B）
-   C. 示例（C）
-   D. 示例（D）
+      const id = generateId();
+      const title = topic.trim().slice(0, 20) || "练习题";
+      saveItem({
+        id,
+        title: `${qtype || "练习题"}·${title}`,
+        type: "试卷",
+        typeColor: "bg-purple-50 text-purple-600",
+        content,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        favorited: false,
+      });
+      setLastId(id);
+    } catch (e: any) {
+      setError(e.message || "生成失败，请重试");
+      setResult(null);
+    }
 
-2. 填空：本文的作者是_____，文章主要描写了_____的景色。
-
-## 能力提升
-1. 阅读下面的段落，回答问题：
-   （段落内容略）
-   （1）这段话运用了什么修辞手法？
-   （2）这样写有什么表达效果？
-
-2. 简答：结合课文内容，说说作者是如何表达情感的？
-
-## 拓展挑战
-1. 仿照课文的写法，选择你熟悉的一处风景，写一段150字左右的文字。
-2. 课外查阅相关资料，谈谈你对课文主题的理解。`;
-
-    setResult(mockResult);
-    setShowOptimize(false);
-    setOptimizeInput("");
     setGenerating(false);
-
-    const id = generateId();
-    const title = input.trim().slice(0, 30) || "练习题";
-    saveItem({
-      id,
-      title: `练习题·${title}`,
-      type: "试卷",
-      typeColor: "bg-purple-50 text-purple-600",
-      content: mockResult,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      favorited: false,
-    });
-    setLastId(id);
   };
 
   const handleFavorite = () => {
@@ -81,12 +93,16 @@ export default function GenerateQuestionsPage() {
   const handleOptimize = async () => {
     if (!result || !optimizeInput.trim() || !lastId) return;
     setOptimizing(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    const newResult = result + `\n\n（已根据要求优化：${optimizeInput}）\n优化后的内容将在接入 AI API 后生成。`;
-    setResult(newResult);
-    const existing = getSavedItems().find((i) => i.id === lastId);
-    if (existing) {
-      saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
+    try {
+      const prompt = optimizePrompt(result, optimizeInput.trim());
+      const newResult = await callAI(prompt);
+      setResult(newResult);
+      const existing = getSavedItems().find((i) => i.id === lastId);
+      if (existing) {
+        saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
+      }
+    } catch (e: any) {
+      setError(e.message || "优化失败，请重试");
     }
     setShowOptimize(false);
     setOptimizeInput("");
@@ -110,36 +126,71 @@ export default function GenerateQuestionsPage() {
         </p>
       </div>
 
-      <div className="card p-5 mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          知识点范围与要求
-        </label>
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={generating}
-          placeholder="例如：六年级语文第一单元，重点考查字词和阅读理解"
-          className="w-full min-h-[100px] resize-none text-sm text-gray-800 placeholder-gray-300 outline-none leading-relaxed"
-          style={{ border: "none", background: "transparent" }}
-        />
-        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-          <span className="text-xs text-gray-300">
-            {input.length > 0 ? `${input.length} 字` : "支持中英文输入"}
-          </span>
+      <div className="card p-5 mb-6 space-y-4">
+        {/* 第一行：年级 + 科目 + 难度 */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">年级</label>
+            <input value={grade} onChange={(e) => { setGrade(e.target.value); setQtype(""); }} placeholder="如：七年级" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">科目</label>
+            <select value={subject} onChange={(e) => { setSubject(e.target.value); setQtype(""); }} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400">
+              <option>语文</option><option>数学</option><option>英语</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">难度</label>
+            <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400">
+              <option>容易</option><option>中等</option><option>困难</option>
+            </select>
+          </div>
+        </div>
+        {/* 第二行：题型下拉 + 数量 */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              题型 {stage && <span className="text-gray-400">（{allTypes.length}种）</span>}
+            </label>
+            <select value={qtype} onChange={(e) => setQtype(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" disabled={!stage}>
+              <option value="">{stage ? "请选择题型" : "请先输入年级"}</option>
+              {allTypes.map(t => (
+                <option key={t} value={t}>{t}{registeredTypes.includes(t) ? " ✓" : ""}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">数量</label>
+            <input type="number" value={count} onChange={(e) => setCount(Number(e.target.value))} min={1} max={20} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
+          </div>
+        </div>
+        {/* 第三行：知识点（选填） */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">知识点 <span className="text-gray-300">（选填）</span></label>
+          <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="如：搭配不当、分数加减法" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
+        </div>
+        {qtype && !selectedTypeRegistered && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+            「{qtype}」规则暂未完成，当前为通用模式。建议选择标有 ✓ 的题型。
+          </div>
+        )}
+        <div className="pt-3 border-t border-gray-100 flex justify-end">
           <button
             onClick={handleGenerate}
-            disabled={generating || !input.trim()}
-            className={`btn-primary flex items-center gap-2 text-sm ${
-              generating || !input.trim()
-                ? "opacity-50 cursor-not-allowed"
-                : ""
-            }`}
+            disabled={generating || !grade.trim()}
+            className={`btn-primary flex items-center gap-2 text-sm ${generating || !grade.trim() ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <Sparkles className="w-4 h-4" />
-            {generating ? "生成中..." : "开始生成"}
+            {generating ? "生成中..." : "生成题目"}
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="card p-4 mb-6 border-red-100 bg-red-50">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
 
       {generating && (
         <div className="card p-6 animate-fade-in">
@@ -221,7 +272,7 @@ export default function GenerateQuestionsPage() {
             </div>
           )}
           <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-            {result}
+            <ReactMarkdown>{result || ""}</ReactMarkdown>
           </div>
         </div>
       )}

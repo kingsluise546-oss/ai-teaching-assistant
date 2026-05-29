@@ -1,3 +1,7 @@
+import { detectStage, Difficulty } from "./questionTypes";
+import { findRule } from "./ruleSchema";
+import { buildDifficultyText, getGradeLanguage } from "./difficultyFramework";
+
 /** 预留：技能调用参数 — 以后路由系统从这里传 */
 export interface SkillOptions {
   subject?: string;
@@ -571,34 +575,103 @@ export function prepareLessonPrompt(topic: string, options?: SkillOptions) {
   };
 }
 
-export function generateQuestionsPrompt(topic: string) {
+export function generateQuestionsPrompt(params: {
+  subject: string;
+  grade: string;
+  topic: string;
+  type?: string;
+  difficulty: string;
+  count: number;
+}) {
+  const stage = detectStage(params.grade);
+  const difficulty = (params.difficulty as Difficulty) || "中等";
+  const subject = params.subject as import("./routingTree").Subject;
+
+  // 严格降级：指定了题型但未注册规则 → 拒绝生成
+  if (params.type && !findRule(stage, subject, params.type)) {
+    return {
+      system: "你是一位K12命题专家。",
+      messages: [
+        {
+          role: "user" as const,
+          content: `【该题型暂未完成规则注册】\n学段：${stage} | 学科：${subject} | 题型：${params.type}\n该题型路由已存在但规则尚未编写，请勿自由生成，避免质量失控。`,
+        },
+      ],
+    };
+  }
+
+  const rule = params.type ? findRule(stage, subject, params.type) : undefined;
+
+  // 年级语言控制
+  const gradeLang = getGradeLanguage(params.grade);
+  const difficultyGuide = buildDifficultyText(difficulty, params.grade, params.type || "题目");
+
+  // 构建模块化 Prompt
+  const systemPrompt = [
+    `你是一位K12命题专家。直接输出题目，禁止任何开场白、问候语或角色确认（如"好的""作为命题专家""我将按要求生成"等）。年级=${params.grade}，学段=${stage}。`,
+    "",
+    "【通用难度框架】",
+    difficultyGuide,
+    "",
+    "【年级语言控制】",
+    `句子长度：${gradeLang.sentenceLength}`,
+    `词汇水平：${gradeLang.vocabulary}`,
+    `语境风格：${gradeLang.contextStyle}`,
+    `句法复杂度：${gradeLang.syntaxLevel}`,
+    "",
+    "【学段要求】",
+    stage === "小学" ? "重识记理解，有趣味有情境，语言亲切。" : "",
+    stage === "初中" ? "重理解分析，有思维含量，使用学科术语。" : "",
+    stage === "高中" ? "重综合思辨，近高考风格，强调知识整合。" : "",
+  ];
+
+  if (rule) {
+    systemPrompt.push(
+      "",
+      `【题型：${rule.typeName}】`,
+      `考查目标：${rule.objective}`,
+      "",
+      `【材料规格】${rule.materialSpec}`,
+      "",
+      `【题目结构】${rule.questionStructure}`,
+      "",
+      `【答案格式】${rule.answerFormat}`,
+      "",
+      `【难度控制（${difficulty}）】${rule.difficultyControl[difficulty]}`,
+      "",
+      "【约束条件】",
+      ...rule.constraints.map((c, i) => `${i + 1}. ${c}`),
+      "",
+      "【输出模板】",
+      rule.outputTemplate,
+      "",
+      "【校验规则】生成后自查：",
+      ...rule.validationRules.map((v, i) => `${i + 1}. ${v}`),
+    );
+  } else {
+    systemPrompt.push(
+      "",
+      `题型：${params.type || "请根据学段和知识点选择合适题型"}`,
+      "每题输出：题号、题干、答案、解析、考点标签。",
+    );
+  }
+
+  // 强约束：禁止AI输出角色扮演文本
+  systemPrompt.push(
+    "",
+    "【输出规则】直接从题目内容开始输出，禁止以下任何形式的前置文本：",
+    "禁止：'好的'、'作为一名命题专家'、'我将严格按照要求'、'以下是'、'为您生成'",
+    "正确：直接输出 ## 或题目内容",
+  );
+
   return {
-    system: `你是一位有丰富命题经验的学科教师。根据用户输入的知识点范围，生成一套分层练习题。
-
-请严格按照以下三层结构出题：
-
-## 基础巩固（占比约50%）
-- 题型：选择题、填空题、判断题
-- 考查目标：记忆、理解层面的基础知识
-- 每题附参考答案
-
-## 能力提升（占比约30%）
-- 题型：简答题、阅读理解题、计算题
-- 考查目标：应用、分析层面的综合能力
-- 每题附参考答案或评分要点
-
-## 拓展挑战（占比约20%）
-- 题型：开放题、探究题、实践题
-- 考查目标：评价、创造层面的高阶思维
-- 附评分标准参考
-
-出题要求：
-1. 题目表述清晰、无歧义
-2. 难度递进合理，体现分层
-3. 贴近学生生活实际，设置真实情境
-4. 控制题量，基础巩固5-8题，能力提升3-4题，拓展挑战1-2题
-5. 使用 markdown 格式输出`,
-    messages: [{ role: "user" as const, content: `知识点范围：${topic}\n请生成分层练习题。` }],
+    system: systemPrompt.join("\n"),
+    messages: [
+      {
+        role: "user" as const,
+        content: `请生成${params.count}道${params.grade}${subject}关于"${params.topic}"的题目，难度${difficulty}。${params.type ? `题型：${params.type}` : ""}`,
+      },
+    ],
   };
 }
 
