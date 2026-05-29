@@ -37,6 +37,87 @@ body {
   .btn-ghost {
     @apply text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg px-3 py-1.5 text-sm transition-colors duration-150;
   }
+
+  /* 教案文档排版 — 宋体小四 1.5倍行距 */
+  .doc-lesson-plan {
+    font-family: "SimSun", "STSong", "Songti SC", "Noto Serif CJK SC", serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #1a1a1a;
+  }
+
+  /* 一级标题：一、二、三… 黑体小三加粗 */
+  .doc-lesson-plan h2 {
+    font-family: "SimHei", "STHeiti", "Heiti SC", "Noto Sans CJK SC", sans-serif;
+    font-size: 15pt;
+    font-weight: bold;
+    margin: 1em 0 0.5em 0;
+  }
+
+  /* 二级标题：（一）（二）（三）… */
+  .doc-lesson-plan h3 {
+    font-family: "SimHei", "STHeiti", "Heiti SC", "Noto Sans CJK SC", sans-serif;
+    font-size: 15pt;
+    font-weight: bold;
+    margin: 1em 0 0.5em 0;
+  }
+
+  /* 段落 */
+  .doc-lesson-plan p {
+    margin: 0.5em 0;
+    padding-left: 2em;
+  }
+
+  /* 加粗文字 */
+  .doc-lesson-plan strong {
+    font-family: "SimHei", "STHeiti", "Heiti SC", "Noto Sans CJK SC", sans-serif;
+    font-weight: bold;
+  }
+
+  /* 列表 */
+  .doc-lesson-plan ul,
+  .doc-lesson-plan ol {
+    margin: 0.3em 0;
+    padding-left: 2em;
+  }
+
+  .doc-lesson-plan li {
+    margin: 0.2em 0;
+    line-height: 1.5;
+  }
+
+  /* 板书代码块 */
+  .doc-lesson-plan pre {
+    font-family: "SimSun", "STSong", "Songti SC", "Noto Serif CJK SC", serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 0.75em 1em;
+    margin: 0.6em 0;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .doc-lesson-plan pre code {
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  @media print {
+    .doc-lesson-plan {
+      font-family: "SimSun", "STSong", "Songti SC", serif !important;
+      font-size: 12pt !important;
+      line-height: 1.5 !important;
+      color: #000 !important;
+    }
+
+    @page {
+      size: A4;
+      margin: 2.54cm 3.17cm;
+    }
+  }
 }
 
 @keyframes fade-in {
