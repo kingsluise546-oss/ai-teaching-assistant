@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import { ArrowLeft, Sparkles, Copy, Check, Heart, Wand2 } from "lucide-react";
 import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/storage";
+import { callAI } from "@/lib/ai";
+import { prepareLessonPrompt, optimizePrompt } from "@/lib/prompts";
+// TODO: options 占位
 
 export default function PrepareLessonPage() {
   const router = useRouter();
@@ -16,48 +20,39 @@ export default function PrepareLessonPage() {
   const [showOptimize, setShowOptimize] = useState(false);
   const [optimizeInput, setOptimizeInput] = useState("");
   const [optimizing, setOptimizing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     if (!input.trim()) return;
     setGenerating(true);
+    setError(null);
 
-    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      const prompt = prepareLessonPrompt(input.trim());
+      const content = await callAI(prompt);
+      setResult(content);
 
-    const mockResult = `## 教学目标
-- 学生能够理解课文中比喻、拟人等修辞手法的运用，并能在写作中模仿使用。
-- 能有感情地朗读全文，感受作者笔下的意境之美。
-- 培养学生热爱祖国语言文字的情感。
+      const id = generateId();
+      const title = input.trim().slice(0, 30) || "备课教案";
+      saveItem({
+        id,
+        title: `备课教案·${title}`,
+        type: "教案",
+        typeColor: "bg-blue-50 text-blue-600",
+        content,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        favorited: false,
+      });
+      setLastId(id);
+    } catch (e: any) {
+      setError(e.message || "生成失败，请重试");
+      setResult(null);
+    }
 
-## 教学流程
-1. **导入新课（5分钟）**：展示相关图片，引导学生谈谈对课题的第一印象，激发学习兴趣。
-2. **初读课文（10分钟）**：学生自由朗读，圈画生字词，初步感知课文内容与情感基调。
-3. **精读分析（15分钟）**：重点赏析关键词句，分析修辞手法的表达效果，体会语言之美。
-4. **课堂练习（10分钟）**：仿照课文写一段描写，运用本课学到的修辞手法。
-5. **小结作业（5分钟）**：总结本课重点，布置课后作业。
-
-## 课堂提问
-- 【基础】课文主要描写了哪些内容？请用自己的话说一说。
-- 【理解】作者运用了哪些修辞手法？这样写有什么好处？
-- 【应用】如果你是作者，你会用什么词语来描述你的感受？`;
-
-    setResult(mockResult);
     setShowOptimize(false);
     setOptimizeInput("");
     setGenerating(false);
-
-    const id = generateId();
-    const title = input.trim().slice(0, 30) || "备课教案";
-    saveItem({
-      id,
-      title: `备课教案·${title}`,
-      type: "教案",
-      typeColor: "bg-blue-50 text-blue-600",
-      content: mockResult,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      favorited: false,
-    });
-    setLastId(id);
   };
 
   const handleFavorite = () => {
@@ -76,12 +71,16 @@ export default function PrepareLessonPage() {
   const handleOptimize = async () => {
     if (!result || !optimizeInput.trim() || !lastId) return;
     setOptimizing(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    const newResult = result + `\n\n（已根据要求优化：${optimizeInput}）\n优化后的内容将在接入 AI API 后生成。`;
-    setResult(newResult);
-    const existing = getSavedItems().find((i) => i.id === lastId);
-    if (existing) {
-      saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
+    try {
+      const prompt = optimizePrompt(result, optimizeInput.trim());
+      const newResult = await callAI(prompt);
+      setResult(newResult);
+      const existing = getSavedItems().find((i) => i.id === lastId);
+      if (existing) {
+        saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
+      }
+    } catch (e: any) {
+      setError(e.message || "优化失败，请重试");
     }
     setShowOptimize(false);
     setOptimizeInput("");
@@ -135,6 +134,12 @@ export default function PrepareLessonPage() {
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="card p-4 mb-6 border-red-100 bg-red-50">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
 
       {generating && (
         <div className="card p-6 animate-fade-in">
@@ -215,8 +220,8 @@ export default function PrepareLessonPage() {
               </div>
             </div>
           )}
-          <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed whitespace-pre-wrap">
-            {result}
+          <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+            <ReactMarkdown>{result || ""}</ReactMarkdown>
           </div>
         </div>
       )}

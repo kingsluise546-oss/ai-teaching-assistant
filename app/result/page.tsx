@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import {
   ArrowLeft,
   Copy,
@@ -13,8 +14,8 @@ import { getSavedItems, deleteItem, toggleFavorite, saveItem, type SavedItem } f
 
 function ContentRenderer({ content }: { content: string }) {
   return (
-    <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-      {content}
+    <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+      <ReactMarkdown>{content}</ReactMarkdown>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import { ArrowLeft, Sparkles, Copy, Check, Heart, Wand2 } from "lucide-react";
 import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/storage";
 
@@ -283,7 +284,7 @@ export default function WriteCommentPage() {
               </div>
             </div>
           )}
-          <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+          <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
             {result}
           </div>
         </div>
