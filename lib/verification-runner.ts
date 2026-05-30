@@ -12,6 +12,10 @@ import "../lib/questionRules";
 import { generateQuestionsPrompt } from "./prompts";
 import { findRule, ruleRegistry, RuleSchema } from "./ruleSchema";
 import { ROUTING_TREE, detectStage, Stage, Subject, GRADES_BY_STAGE } from "./routingTree";
+import {
+  TOK_ITEM_S, TOK_ITEM_E, TOK_KP, TOK_TYPE, TOK_ANS_S, TOK_ANS_E, TOK_EXP_S, TOK_EXP_E,
+  matchToken, matchWrapped, snip,
+} from "./tokenParser";
 
 // ============================================================
 // 1. 核心接口
@@ -138,16 +142,6 @@ export interface VerificationReport {
 //   [[ANS]]content[[/ANS]]
 //   [[EXP]]content[[/EXP]]
 
-const TOK_ITEM_S = "[[ITEM_START:";
-const TOK_ITEM_E = "[[ITEM_END:";
-const TOK_META   = "[[META:";
-const TOK_KP     = "[[KP:";
-const TOK_TYPE   = "[[TYPE:";
-const TOK_ANS_S  = "[[ANS]]";
-const TOK_ANS_E  = "[[/ANS]]";
-const TOK_EXP_S  = "[[EXP]]";
-const TOK_EXP_E  = "[[/EXP]]";
-
 // ============================================================
 // 3. Job 自动生成
 // ============================================================
@@ -188,27 +182,13 @@ export function calculateDepth(rule: RuleSchema): VerificationDepth {
 // 字段 token：[[KP:a|b]] [[TYPE:a|b]] [[ANS]]v[[/ANS]] [[EXP]]v[[/EXP]]
 // Parser 行为：find token → validate → reject malformed（无 fallback）
 
-// ── Token 匹配（返回 null = 不存在 = 后续报 FORMAT_ERR）──
-
-function matchToken(text: string, token: string): string | null {
-  const re = new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(.+?)\\]\\]', 's');
-  const m = text.match(re);
-  return m ? m[1].trim() : null;
-}
-
-function matchWrapped(text: string, open: string, close: string): string | null {
-  const re = new RegExp(
-    open.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([\\s\\S]*?)' + close.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 's');
-  const m = text.match(re);
-  return m ? m[1].trim() : null;
-}
+// ── Token 匹配（共享自 tokenParser.ts）──
 
 function tokenErr(code: string, itemId: string, expected: string, snapshot: string): ErrorDetail {
   return { layer: "FORMAT", code, itemId, expected,
     aiOutputSnapshot: snapshot.length > 200 ? snapshot.substring(0, 200) + "..." : snapshot };
 }
 
-function snip(text: string, len = 120): string { return text.length > len ? text.substring(0, len) + "..." : text; }
 function gid(mid: string | null, sub: number): string { return mid ? `${mid}-Q${sub}` : `Q${sub}`; }
 
 // ── 提取单个 item block 内的所有 token 字段 ──
@@ -455,7 +435,8 @@ export function deriveLayer1(rule: RuleSchema, strictness: Strictness = "standar
   const rules: LayerRule[] = [];
   if (strictness !== "light") {
     // 优先从 difficultyControl 按难度取范围，fallback 到 materialSpec
-    const diffKey = label.includes("容易") ? "容易" : label.includes("中等") ? "中等" : label.includes("困难") ? "困难" : null;
+    const lbl = label || "";
+    const diffKey = lbl.includes("容易") ? "容易" : lbl.includes("中等") ? "中等" : lbl.includes("困难") ? "困难" : null;
     const diffText = diffKey ? rule.difficultyControl[diffKey as Difficulty] : "";
     const diffLen = diffText.match(/(\d+)[-–—](\d+)\s*字/);
     const matLen = rule.materialSpec.match(/(\d+)[-–—](\d+)\s*字/);
@@ -546,7 +527,7 @@ export async function generateReport(
   l.push(`# ${job.name} 验证报告`);
 
   // Layer 2 复核（仅 strict 模式）
-  if (strictness === "strict") {
+  if (strictness === "strict" && apiKey) {
     const reviewResults = await runLayer2Review(validations, rule, apiKey);
     if (reviewResults.reviewed > 0) {
       l.push("");

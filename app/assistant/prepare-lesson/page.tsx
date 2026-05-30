@@ -34,7 +34,7 @@ export default function PrepareLessonPage() {
 
       const id = generateId();
       const title = input.trim().slice(0, 30) || "备课教案";
-      saveItem({
+      const saved = saveItem({
         id,
         title: `备课教案·${title}`,
         type: "教案",
@@ -44,6 +44,7 @@ export default function PrepareLessonPage() {
         updatedAt: new Date().toISOString(),
         favorited: false,
       });
+      if (!saved.success) setError(saved.error || "保存失败");
       setLastId(id);
     } catch (e: any) {
       setError(e.message || "生成失败，请重试");
@@ -77,7 +78,8 @@ export default function PrepareLessonPage() {
       setResult(newResult);
       const existing = getSavedItems().find((i) => i.id === lastId);
       if (existing) {
-        saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
+        const saved = saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
+        if (!saved.success) setError(saved.error || "保存失败");
       }
     } catch (e: any) {
       setError(e.message || "优化失败，请重试");

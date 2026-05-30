@@ -8,23 +8,52 @@ import { ArrowLeft, Sparkles, Copy, Check, Heart, Wand2 } from "lucide-react";
 import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/storage";
 import { callAI } from "@/lib/ai";
 import { generateQuestionsPrompt, optimizePrompt } from "@/lib/prompts";
-import { detectStage, getAvailableTypes, Stage } from "@/lib/questionTypes";
+import { detectStage, getAvailableTypes, getModuleGroups, Stage, type ModuleGroup } from "@/lib/questionTypes";
 import { getRegisteredTypes, isRuleRegistered } from "@/lib/questionRules";
-import { parseOutputLite } from "@/lib/parser-browser";
+import { parseOutputLite, type ParsedItemLite } from "@/lib/parser-browser";
 
-/** 将 AI 输出解析为结构化 HTML */
+/** 清除文本中的 TOKEN 标记 */
+function stripTokens(text: string): string {
+  const normalized = text.replace(/【/g, "[").replace(/】/g, "]");
+  // 匹配 [[...]] 含中文、竖线等任意字符
+  return normalized.replace(/\[\[[^\]]+\]\]/g, "");
+}
+
+/** 清除残余 markdown 符号 */
+function stripMarkdown(text: string): string {
+  return text.replace(/\*{1,3}/g, "").replace(/#{1,6}\s?/g, "").replace(/`{1,3}/g, "");
+}
+
+/** 渲染答案区：统一格式 */
 function renderResult(raw: string): string {
   const items = parseOutputLite(raw);
+
+  // 无 TOKEN → 把整个答案区当纯文本，套上标题
   if (items.length === 0) {
-    // 无 token → 整段作为原始文本渲染
-    const ans = raw.split(/参考答案与解析|【参考答案/i)[1] || "";
-    return ans ? `<pre style="white-space:pre-wrap;font-family:inherit;">${ans}</pre>` : "";
+    const ans = raw.split(/参考答案与解析|【参考答案|答案与解析/i)[1] || raw;
+    const clean = stripMarkdown(stripTokens(ans)).trim();
+    if (!clean) return "";
+    // 尝试按空行切分，每题一段
+    const blocks = clean.split(/\n{2,}/).filter(b => b.trim());
+    const html = blocks.map((b, i) => {
+      const lines = b.trim().split(/\n/);
+      // 第一行当作考点，第二行答案，第三行解析（如果 AI 没按格式来至少有个兜底）
+      const kp = lines[0] || "—";
+      const ans = lines[1] || lines[0] || "—";
+      const exp = lines.slice(2).join(" ") || "";
+      return `<p style="margin-bottom:0.75rem;"><strong>考点：</strong>${kp}<br><strong>答案：</strong>${ans}${exp ? `<br><strong>解析：</strong>${exp}` : ""}</p>`;
+    }).join("");
+    return `<div class="mt-3"><strong>答案与解析</strong>${html}</div>`;
   }
-  return items.map(item => {
-    const ans = item.answer || "（未解析到答案）";
-    const exp = item.analysis || "";
-    return `<p><strong>${item.index}. 参考答案：</strong> ${ans}${exp ? `<br><strong>解析：</strong> ${exp}` : ""}</p>`;
+
+  // 有 TOKEN → 精准渲染
+  const html = items.map(item => {
+    const kp = stripMarkdown(item.examPoint || "—");
+    const ans = stripMarkdown(item.answer || "（未解析到答案）");
+    const exp = stripMarkdown(item.analysis || "");
+    return `<p style="margin-bottom:0.75rem;"><strong>考点：</strong>${kp}<br><strong>答案：</strong>${ans}${exp ? `<br><strong>解析：</strong>${exp}` : ""}</p>`;
   }).join("");
+  return `<div class="mt-3"><strong>答案与解析</strong>${html}</div>`;
 }
 
 export default function GenerateQuestionsPage() {
@@ -34,7 +63,7 @@ export default function GenerateQuestionsPage() {
   const [topic, setTopic] = useState("");
   const [qtype, setQtype] = useState("");
   const [difficulty, setDifficulty] = useState("中等");
-  const [count, setCount] = useState(3);
+  const [count, setCount] = useState(1);
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -46,9 +75,12 @@ export default function GenerateQuestionsPage() {
   const stage: Stage | null = grade.trim() ? detectStage(grade.trim()) : null;
   const allTypes = stage ? getAvailableTypes(stage, subject as any) : [];
   const registeredTypes = stage ? getRegisteredTypes(stage, subject as any) : [];
-  const availableTypes = qtype.trim()
-    ? allTypes.filter(t => t.includes(qtype.trim()))
-    : allTypes;
+  const modules: ModuleGroup[] | null = stage ? getModuleGroups(stage, subject as any) : null;
+
+  // 两级联动：模块 → 题型
+  const [qmodule, setQmodule] = useState("");
+  const currentModule = modules?.find(m => m.label === qmodule);
+  const moduleTypes = currentModule?.types || [];
   const selectedTypeRegistered = qtype.trim() && stage ? isRuleRegistered(stage, subject as any, qtype.trim()) : true;
   const [optimizeInput, setOptimizeInput] = useState("");
   const [optimizing, setOptimizing] = useState(false);
@@ -75,7 +107,7 @@ export default function GenerateQuestionsPage() {
 
       const id = generateId();
       const title = topic.trim().slice(0, 20) || "练习题";
-      saveItem({
+      const saved = saveItem({
         id,
         title: `${qtype || "练习题"}·${title}`,
         type: "试卷",
@@ -85,6 +117,9 @@ export default function GenerateQuestionsPage() {
         updatedAt: new Date().toISOString(),
         favorited: false,
       });
+      if (!saved.success) {
+        setError((prev) => (prev ? prev + " " : "") + saved.error);
+      }
       setLastId(id);
     } catch (e: any) {
       setError(e.message || "生成失败，请重试");
@@ -116,7 +151,10 @@ export default function GenerateQuestionsPage() {
       setResult(newResult);
       const existing = getSavedItems().find((i) => i.id === lastId);
       if (existing) {
-        saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
+        const saved = saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
+        if (!saved.success) {
+          setError(saved.error || "保存失败");
+        }
       }
     } catch (e: any) {
       setError(e.message || "优化失败，请重试");
@@ -148,11 +186,11 @@ export default function GenerateQuestionsPage() {
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">年级</label>
-            <input value={grade} onChange={(e) => { setGrade(e.target.value); setQtype(""); }} placeholder="如：七年级" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
+            <input value={grade} onChange={(e) => { setGrade(e.target.value); setQmodule(""); setQtype(""); }} placeholder="如：七年级" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">科目</label>
-            <select value={subject} onChange={(e) => { setSubject(e.target.value); setQtype(""); }} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400">
+            <select value={subject} onChange={(e) => { setSubject(e.target.value); setQmodule(""); setQtype(""); }} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400">
               <option>语文</option><option>数学</option><option>英语</option>
             </select>
           </div>
@@ -163,32 +201,84 @@ export default function GenerateQuestionsPage() {
             </select>
           </div>
         </div>
-        {/* 第二行：题型下拉 + 数量 */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* 第二行：模块 → 题型 两级联动 + 数量 */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* 第一级：模块 */}
+          {modules ? (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                模块 {stage && modules.length > 0 && <span className="text-gray-400">（{modules.length}个）</span>}
+              </label>
+              <select
+                value={qmodule}
+                onChange={(e) => { setQmodule(e.target.value); setQtype(""); }}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400"
+                disabled={!stage}
+              >
+                <option value="">{stage ? "请选择模块" : "请先输入年级"}</option>
+                {modules.map(m => (
+                  <option key={m.label} value={m.label}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">题型</label>
+              <select value={qtype} onChange={(e) => setQtype(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" disabled={!stage}>
+                <option value="">{stage ? "请选择题型" : "请先输入年级"}</option>
+                {allTypes.map(t => {
+                  const reg = registeredTypes.includes(t);
+                  return (
+                    <option key={t} value={t} disabled={!reg}>
+                      {reg ? t : `${t}（暂未开放）`}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
+          {/* 第二级：题型（仅模块模式显示） */}
+          {modules && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                题型 {qmodule && <span className="text-gray-400">（{moduleTypes.length}种）</span>}
+              </label>
+              <select
+                value={qtype}
+                onChange={(e) => setQtype(e.target.value)}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400"
+                disabled={!qmodule}
+              >
+                <option value="">{qmodule ? "请选择题型" : "请先选择模块"}</option>
+                {moduleTypes.map(t => {
+                  const reg = registeredTypes.includes(t);
+                  return (
+                    <option key={t} value={t} disabled={!reg}>
+                      {reg ? t : `${t}（暂未开放）`}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
+          {/* 数量（始终显示） */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              题型 {stage && <span className="text-gray-400">（{allTypes.length}种）</span>}
-            </label>
-            <select value={qtype} onChange={(e) => setQtype(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" disabled={!stage}>
-              <option value="">{stage ? "请选择题型" : "请先输入年级"}</option>
-              {allTypes.map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">生成数量（几套题？上限10套）</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">题目数量（1-10道）</label>
             <input type="number" value={count} onChange={(e) => setCount(Math.min(10, Math.max(1, Number(e.target.value))))} min={1} max={10} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
           </div>
         </div>
+        {/* 未注册题型提示：仅当当前模块有未注册类型时显示 */}
+        {modules && qmodule && moduleTypes.some(t => !registeredTypes.includes(t)) && (
+          <p className="text-xs text-gray-400 mt-1">标注"暂未开放"的题型规则尚未完成</p>
+        )}
         {/* 第三行：知识点（选填） */}
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">知识点 <span className="text-gray-300">（选填）</span></label>
-          <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="如：搭配不当、分数加减法" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
+          <input value={topic} onChange={(e) => setTopic(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleGenerate(); }} placeholder="如：搭配不当、分数加减法" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
         </div>
         {qtype && !selectedTypeRegistered && (
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-            「{qtype}」规则暂未完成，生成质量可能不稳定。
+            ⚠️ 「{qtype}」规则尚未注册，将拒绝生成。请从下拉框中选择可用的题型。
           </div>
         )}
         <div className="pt-3 border-t border-gray-100 flex justify-end">
@@ -289,9 +379,19 @@ export default function GenerateQuestionsPage() {
             </div>
           )}
           <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-            <ReactMarkdown remarkPlugins={[remarkBreaks]}>{(result || "").split(/参考答案与解析|【参考答案/i)[0].replace(/\n---\s*\*{0,2}\s*$/g, "").trim()}</ReactMarkdown>
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100"
-                 dangerouslySetInnerHTML={{ __html: renderResult(result || "") }} />
+            <ReactMarkdown
+              remarkPlugins={[remarkBreaks]}
+              components={{
+                table: ({ children }) => (
+                  <div className="overflow-x-auto my-3">
+                    <table className="min-w-full border-collapse border border-gray-200 text-sm">{children}</table>
+                  </div>
+                ),
+                thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
+                th: ({ children }) => <th className="border border-gray-200 px-3 py-1.5 text-left font-medium text-gray-600">{children}</th>,
+                td: ({ children }) => <td className="border border-gray-200 px-3 py-1.5">{children}</td>,
+              }}
+            >{stripMarkdown(stripTokens((result || "").replace(/={10,}/g, "---").replace(/【第[一二三四五六七八九十\d]+篇】/g, "")))}</ReactMarkdown>
           </div>
         </div>
       )}
