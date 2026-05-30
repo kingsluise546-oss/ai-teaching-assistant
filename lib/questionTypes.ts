@@ -18,8 +18,9 @@ export {
   DEFAULT_DIFFICULTY,
 } from "./routingTree";
 
+import { Stage, Subject, getTypeTree as _getTypeTree } from "./routingTree";
+
 /** 快捷：获取某学段+学科的所有题型名称 */
-export function getAvailableTypes(stage: import("./routingTree").Stage, subject: import("./routingTree").Subject): string[] {
-  const { getTypeTree } = require("./routingTree");
-  return getTypeTree(stage, subject).map((t: any) => t.name);
+export function getAvailableTypes(stage: Stage, subject: Subject): string[] {
+  return _getTypeTree(stage, subject).map((t: any) => t.name);
 }

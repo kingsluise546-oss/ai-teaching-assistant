@@ -1,6 +1,44 @@
 import { detectStage, Difficulty } from "./questionTypes";
-import { findRule } from "./ruleSchema";
+import { findRule, RuleSchema } from "./ruleSchema";
 import { buildDifficultyText, getGradeLanguage } from "./difficultyFramework";
+
+/** 从 RuleSchema 动态生成输出前强制自检清单 */
+function generateChecklist(rule: RuleSchema, difficulty: string): string[] {
+  const items: string[] = [];
+
+  // 材料/句子长度
+  const diffText = rule.difficultyControl[difficulty as Difficulty] || "";
+  const diffLen = diffText.match(/(\d+)[-–—](\d+)\s*字/);
+  const matLen = rule.materialSpec.match(/(\d+)[-–—](\d+)\s*字/);
+  const lenSrc = diffLen || matLen;
+  if (lenSrc) {
+    items.push(`□ 句子/材料长度在 ${lenSrc[1]}-${lenSrc[2]} 字范围内`);
+  }
+
+  // 类型多样性（从 constraints 提取）
+  if (rule.constraints.some(c => c.includes("相邻"))) {
+    items.push("□ 相邻题语病类型全部不同");
+  }
+  if (rule.constraints.some(c => c.includes("各出现"))) {
+    items.push("□ 每种语病类型恰好出现1次，成分残缺仅1题");
+  }
+
+  // 答案唯一性
+  if (rule.answerStructure === "single") {
+    items.push("□ 每题答案唯一确定，无两可情况");
+  }
+
+  // 材料特定约束
+  if (rule.answerStructure === "multiLayer") {
+    items.push("□ 选文来自课外，不出现课内课文原文");
+  }
+
+  // TOKEN 格式
+  items.push("□ 每道答案使用 [[ITEM_START:N]]...[[ITEM_END:N]] 包裹");
+  items.push("□ [[KP:]] 含 | 分隔符");
+
+  return items.map((item, i) => `${i + 1}. ${item}`);
+}
 
 /** 预留：技能调用参数 — 以后路由系统从这里传 */
 export interface SkillOptions {
@@ -621,7 +659,7 @@ export function generateQuestionsPrompt(params: {
     "",
     "【学段要求】",
     stage === "小学" ? "重识记理解，有趣味有情境，语言亲切。" : "",
-    stage === "初中" ? "重理解分析，有思维含量，使用学科术语。" : "",
+    stage === "初中" ? "重理解分析，有思维含量，使用学科术语。句子内容应涉及社会现象、科普知识、成长思辨，与小学日常语境形成清晰区分。" : "",
     stage === "高中" ? "重综合思辨，近高考风格，强调知识整合。" : "",
   ];
 
@@ -642,7 +680,10 @@ export function generateQuestionsPrompt(params: {
       "【约束条件】",
       ...rule.constraints.map((c, i) => `${i + 1}. ${c}`),
       "",
-      "【输出模板】",
+      "【输出前强制自检——逐项核对，不满足则重新生成】",
+      ...generateChecklist(rule, difficulty),
+      "",
+      "【输出模板——必须严格遵循以下 TOKEN 格式，禁止使用 **答案：** 等旧格式】",
       rule.outputTemplate,
       "",
       "【校验规则】生成后自查：",
@@ -662,14 +703,53 @@ export function generateQuestionsPrompt(params: {
     "【输出规则】直接从题目内容开始输出，禁止以下任何形式的前置文本：",
     "禁止：'好的'、'作为一名命题专家'、'我将严格按照要求'、'以下是'、'为您生成'",
     "正确：直接输出 ## 或题目内容",
+    "",
+    "【TOKEN 强制格式】答案区必须使用以下标记。不可省略、不可变体、不可混入自然语言字段。",
+    "[[ITEM_START:N]] ... [[ITEM_END:N]]    ← 每道题包裹结构（必选，N 为题号）",
+    "[[KP:typeTag|knowledgePoint]]          ← 考点（必选，| 分隔符必含，左侧短标签右侧知识域）",
+    "[[TYPE:主类型|子类型]]                  ← 类型标签（composite 必选，| 分隔符必含）",
+    "[[ANS]]答案内容[[/ANS]]                 ← 答案（必选）",
+    "[[EXP]]解析内容[[/EXP]]                 ← 解析（必选）",
+    "示例：[[KP:多音字|字音字形]] [[ANS]]B[[/ANS]] [[EXP]]翘读qiáo[[/EXP]]",
+    "错误示例：[[KP:字音字形·多音字]] ← 缺少|分隔符，会导致解析失败",
+    "",
+    "【TOKEN 正确示例——连续多题格式】",
+    "[[ITEM_START:1]]",
+    "[[KP:多音字|字音字形]]",
+    "[[ANS]]B[[/ANS]]",
+    "[[EXP]]翘首的翘读qiáo，悄然的悄读qiǎo[[/EXP]]",
+    "[[ITEM_END:1]]",
+    "",
+    "[[ITEM_START:2]]",
+    "[[KP:形近字|字音字形]]",
+    "[[ANS]]D[[/ANS]]",
+    "[[EXP]]A项计较误为计效，B项再接再厉误为再接再励[[/EXP]]",
+    "[[ITEM_END:2]]",
+    "",
+    "以上格式必须逐字照抄结构，只替换内容，不改变任何标记。",
   );
 
+  // multiLayer pre-output checklist
+  if (rule?.answerStructure === "multiLayer") {
+    systemPrompt.push(
+      "",
+      "【输出前自检清单——逐题核对】",
+      "□ 每道题答案是否以 [[ITEM_START:N]] 开头？",
+      "□ 每道题是否以 [[ITEM_END:N]] 结尾且 N 与开头一致？",
+      "□ 每题是否包含 [[KP:typeTag|knowledgePoint]] 且含 | 分隔符？",
+      "□ 每题是否包含 [[ANS]]...[[/ANS]] 和 [[EXP]]...[[/EXP]]？",
+      "以上任何一项不满足将导致解析失败。",
+    );
+  }
+
+  const fmtReminder = `\n\n【格式铁律——违反则解析失败】答案区每题必须严格使用：\\n[[ITEM_START:N]]\\n[[KP:typeTag|knowledgePoint]]\\n[[ANS]]答案[[/ANS]]\\n[[EXP]]解析[[/EXP]]\\n[[ITEM_END:N]]\\n禁止使用 **答案：** |考点： 等任何旧格式。Token缺失或格式错误将直接判定不合格。`;
+  const userMsg = `【TOKEN 格式要求：答案区每题必须用 [[ITEM_START:N]]...[[ITEM_END:N]]，内含 [[KP:a|b]] [[ANS]]v[[/ANS]] [[EXP]]v[[/EXP]]，禁止旧格式】\n\n请生成${params.count}道${params.grade}${subject}关于"${params.topic}"的题目，难度${difficulty}。${params.type ? `题型：${params.type}` : ""}${fmtReminder}`;
   return {
     system: systemPrompt.join("\n"),
     messages: [
       {
         role: "user" as const,
-        content: `请生成${params.count}道${params.grade}${subject}关于"${params.topic}"的题目，难度${difficulty}。${params.type ? `题型：${params.type}` : ""}`,
+        content: userMsg,
       },
     ],
   };

@@ -3,7 +3,7 @@
  * 全学科复用，不是每题重写
  */
 
-import { Stage, Difficulty } from "./routingTree";
+import { Stage, Difficulty, extractGradeNumber } from "./routingTree";
 
 // ====== 通用难度框架 ======
 // 所有学科、所有题型的难度分级都遵循这个基础框架
@@ -74,7 +74,7 @@ export const GRADE_LANGUAGE: Record<number, GradeLanguageProfile> = {
 
 /** 根据年级获取语言配置 */
 export function getGradeLanguage(grade: string): GradeLanguageProfile {
-  const num = parseInt(grade.replace(/[^0-9]/g, ""));
+  const num = extractGradeNumber(grade);
   return GRADE_LANGUAGE[num] || GRADE_LANGUAGE[7]; // 默认七年级
 }
 

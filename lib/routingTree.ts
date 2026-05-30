@@ -176,10 +176,60 @@ export const ROUTING_TREE: RoutingTree[] = [
 
 // ====== 路由查询工具函数 ======
 
+/** 中文数字 → 阿拉伯数字 映射 */
+const CN_NUM: Record<string, number> = {
+  一: 1, 二: 2, 三: 3, 四: 4, 五: 5,
+  六: 6, 七: 7, 八: 8, 九: 9, 十: 10,
+};
+
+/** 从年级字符串中提取数字（支持中文数字和阿拉伯数字，处理别名） */
+function extractGradeNumber(grade: string): number {
+  // 别名偏移
+  if (grade.includes("初")) {
+    // 初一→7, 初二→8, 初三→9
+    for (const [cn, num] of Object.entries(CN_NUM)) {
+      if (grade.includes(cn)) return num + 6;
+    }
+    return 7;
+  }
+  if (grade.includes("高")) {
+    // 高一→10, 高二→11, 高三→12
+    for (const [cn, num] of Object.entries(CN_NUM)) {
+      if (grade.includes(cn)) return num + 9;
+    }
+    return 10;
+  }
+  if (grade.startsWith("小")) {
+    // 小一→1, 小二→2 ... 小六→6
+    for (const [cn, num] of Object.entries(CN_NUM)) {
+      if (grade.includes(cn)) return num;
+    }
+    return 1;
+  }
+
+  // 先尝试阿拉伯数字
+  const arabic = parseInt(grade.replace(/[^0-9]/g, ""));
+  if (!isNaN(arabic)) return arabic;
+
+  // 再尝试中文数字
+  for (const [cn, num] of Object.entries(CN_NUM)) {
+    if (grade.includes(cn)) return num;
+  }
+
+  return NaN;
+}
+
+export { extractGradeNumber };
+
 /** 年级 → 学段 */
 export function detectStage(grade: string): Stage {
-  const num = parseInt(grade.replace(/[^0-9]/g, ""));
-  if (isNaN(num)) return "初中";
+  // 别名映射
+  if (grade.includes("高")) return "高中";
+  if (grade.includes("初")) return "初中";   // 初一/初二/初三
+  if (grade.startsWith("小")) return "小学"; // 小一~小六
+
+  const num = extractGradeNumber(grade);
+  if (isNaN(num)) return "初中"; // 兜底
   if (num <= 6) return "小学";
   if (num <= 9) return "初中";
   return "高中";

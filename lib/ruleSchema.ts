@@ -24,6 +24,12 @@ export interface RuleSchema {
   /** 题目结构：共几道题，每道题考查什么维度，排列逻辑 */
   questionStructure: string;
 
+  /** 答案结构类型：
+   *  single   — 1题1答案，平铺（字音、成语、默写）
+   *  composite— 1题多字段答案（病句：类型+修改+解析）
+   *  multiLayer— 1段材料+N道子题（阅读：选文→4-5题→逐题答案） */
+  answerStructure: "single" | "composite" | "multiLayer";
+
   /** 答案格式：答案怎么写、解析怎么写、考点标签怎么写 */
   answerFormat: string;
 
@@ -36,8 +42,16 @@ export interface RuleSchema {
   /** 输出模板：最终的 markdown 格式模板 */
   outputTemplate: string;
 
-  /** 校验规则：生成后必须检查的项目 */
+  /** 校验规则：生成后 AI 自查项（Layer 2） */
   validationRules: string[];
+
+  // ── 深度判定因子（0-2），用于自动计算验证深度 ──
+  /** 答案开放度：0=唯一答案, 1=半开放, 2=全开放 */
+  answerOpenness: number;
+  /** 结构复杂度：0=单题型, 1=有子题型, 2=嵌套结构 */
+  structureComplexity: number;
+  /** 风险等级：0=无争议, 1=偶有灰色, 2=常有争议 */
+  riskLevel: number;
 }
 
 /** 所有已注册规则的注册表 */

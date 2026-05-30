@@ -3,12 +3,29 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
 import { ArrowLeft, Sparkles, Copy, Check, Heart, Wand2 } from "lucide-react";
 import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/storage";
 import { callAI } from "@/lib/ai";
 import { generateQuestionsPrompt, optimizePrompt } from "@/lib/prompts";
 import { detectStage, getAvailableTypes, Stage } from "@/lib/questionTypes";
 import { getRegisteredTypes, isRuleRegistered } from "@/lib/questionRules";
+import { parseOutputLite } from "@/lib/parser-browser";
+
+/** 将 AI 输出解析为结构化 HTML */
+function renderResult(raw: string): string {
+  const items = parseOutputLite(raw);
+  if (items.length === 0) {
+    // 无 token → 整段作为原始文本渲染
+    const ans = raw.split(/参考答案与解析|【参考答案/i)[1] || "";
+    return ans ? `<pre style="white-space:pre-wrap;font-family:inherit;">${ans}</pre>` : "";
+  }
+  return items.map(item => {
+    const ans = item.answer || "（未解析到答案）";
+    const exp = item.analysis || "";
+    return `<p><strong>${item.index}. 参考答案：</strong> ${ans}${exp ? `<br><strong>解析：</strong> ${exp}` : ""}</p>`;
+  }).join("");
+}
 
 export default function GenerateQuestionsPage() {
   const router = useRouter();
@@ -17,7 +34,7 @@ export default function GenerateQuestionsPage() {
   const [topic, setTopic] = useState("");
   const [qtype, setQtype] = useState("");
   const [difficulty, setDifficulty] = useState("中等");
-  const [count, setCount] = useState(5);
+  const [count, setCount] = useState(3);
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -155,13 +172,13 @@ export default function GenerateQuestionsPage() {
             <select value={qtype} onChange={(e) => setQtype(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" disabled={!stage}>
               <option value="">{stage ? "请选择题型" : "请先输入年级"}</option>
               {allTypes.map(t => (
-                <option key={t} value={t}>{t}{registeredTypes.includes(t) ? " ✓" : ""}</option>
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">数量</label>
-            <input type="number" value={count} onChange={(e) => setCount(Number(e.target.value))} min={1} max={20} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
+            <label className="block text-xs font-medium text-gray-500 mb-1">生成数量（几套题？上限10套）</label>
+            <input type="number" value={count} onChange={(e) => setCount(Math.min(10, Math.max(1, Number(e.target.value))))} min={1} max={10} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
           </div>
         </div>
         {/* 第三行：知识点（选填） */}
@@ -171,7 +188,7 @@ export default function GenerateQuestionsPage() {
         </div>
         {qtype && !selectedTypeRegistered && (
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-            「{qtype}」规则暂未完成，当前为通用模式。建议选择标有 ✓ 的题型。
+            「{qtype}」规则暂未完成，生成质量可能不稳定。
           </div>
         )}
         <div className="pt-3 border-t border-gray-100 flex justify-end">
@@ -272,7 +289,9 @@ export default function GenerateQuestionsPage() {
             </div>
           )}
           <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-            <ReactMarkdown>{result || ""}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkBreaks]}>{(result || "").split(/参考答案与解析|【参考答案/i)[0].replace(/\n---\s*\*{0,2}\s*$/g, "").trim()}</ReactMarkdown>
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100"
+                 dangerouslySetInnerHTML={{ __html: renderResult(result || "") }} />
           </div>
         </div>
       )}
