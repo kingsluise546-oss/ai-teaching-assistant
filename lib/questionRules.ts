@@ -2098,8 +2098,494 @@ const 习作_小学: RuleSchema = {
   answerOpenness: 2, structureComplexity: 1, riskLevel: 1,
 };
 
+// ====== 小学 口算 ======
+const 口算_小学: RuleSchema = {
+  typeName: "口算", stage: "小学", subject: "数学", applicableGrades: null,
+  objective: "考查小学生基本口算能力，覆盖整数加减乘除及简单分数小数口算",
+  materialSpec: "每道题为一个口算式子。1-3年级：整数加减和表内乘除法。4-6年级：含分数、小数",
+  questionStructure: "直接出算式，按运算类型排列",
+  answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: {
+    容易: "20以内加减或表内乘法（1-6口诀），1-3年级",
+    中等: "整数四则或简单小数加减，3-4年级",
+    困难: "分数小数混合运算，5-6年级",
+  },
+  constraints: ["数字在对应年级范围", "结果为确定数值", "不得出现超纲内容"],
+  outputTemplate: `## 口算
+1. 12 + 8 =
+2. 9 × 7 =
+3. 45 ÷ 9 =
+
+---
+**答案与解析**
+**1. 考点：**整数加法 **答案：**20 **解析：**12 + 8 = 20
+**2. 考点：**表内乘法 **答案：**63 **解析：**9 × 7 = 63
+**3. 考点：**表内除法 **答案：**5 **解析：**45 ÷ 9 = 5`,
+  validationRules: ["数字在年级范围", "结果准确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+
+const 竖式计算_小学: RuleSchema = {
+  typeName: "竖式计算", stage: "小学", subject: "数学", applicableGrades: null,
+  objective: "考查小学生竖式计算的规范性，覆盖整数和小数加减乘除竖式",
+  materialSpec: "每道题要求列竖式计算。2-4年级：整数。4-6年级：小数",
+  questionStructure: "给出算式要求列竖式", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: {
+    容易: "两位数加减或一位数乘法，2-3年级",
+    中等: "三位数加减或两位数乘一位数，3-4年级",
+    困难: "多位数乘除或小数竖式，4-6年级",
+  },
+  constraints: ["数字适合对应年级", "算式有列竖式必要", "结果唯一"],
+  outputTemplate: `## 竖式计算
+1. 列竖式计算：345 + 278 =
+2. 列竖式计算：56 × 23 =
+---
+**答案与解析**
+**1. 考点：**加法竖式 **答案：**623 **解析：**个位5+8=13进位1，十位4+7+1=12进位1，百位3+2+1=6
+**2. 考点：**乘法竖式 **答案：**1288 **解析：**56×20=1120，56×3=168，1120+168=1288`,
+  validationRules: ["数字在年级范围", "结果准确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+
+const 脱式计算_小学: RuleSchema = {
+  typeName: "脱式计算", stage: "小学", subject: "数学", applicableGrades: null,
+  objective: "考查小学生递等式计算和运算顺序的掌握",
+  materialSpec: "每道题为需递等式计算的算式，2-3步运算。3-6年级",
+  questionStructure: "给出算式要求脱式", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: {
+    容易: "两步运算无括号，3-4年级",
+    中等: "两步运算含括号，4-5年级",
+    困难: "三步混合运算含括号，5-6年级",
+  },
+  constraints: ["运算步骤2-3步", "适合年级水平"],
+  outputTemplate: `## 脱式计算
+1. 脱式计算：125 × 8 + 375
+---
+**答案与解析**
+**1. 考点：**混合运算 **答案：**1375 **解析：**125×8=1000，1000+375=1375`,
+  validationRules: ["运算顺序正确", "步骤完整", "结果准确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+
+const 填空题_小学数: RuleSchema = {
+  typeName: "填空题", stage: "小学", subject: "数学", applicableGrades: null,
+  objective: "考查小学生对数学概念、公式和计算的掌握",
+  materialSpec: "每道题为含空格的数学题，覆盖单位换算、概念、规律",
+  questionStructure: "3-5题独立填空", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: {
+    容易: "直接单位换算或口诀，1-3年级",
+    中等: "概念应用或简单规律，3-4年级",
+    困难: "复杂规律或公式逆用，5-6年级",
+  },
+  constraints: ["答案唯一", "课标范围", "简洁明确"],
+  outputTemplate: `## 填空题
+1. 1米 = ______ 厘米
+2. 圆的半径3cm，周长 = ______ cm（π取3.14）
+---
+**答案与解析**
+**1. 考点：**单位换算 **答案：**100 **解析：**1米=100厘米
+**2. 考点：**圆的周长 **答案：**18.84 **解析：**2×3.14×3=18.84 cm`,
+  validationRules: ["答案唯一", "课标范围"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+
+const 判断题_小学数: RuleSchema = {
+  typeName: "判断题", stage: "小学", subject: "数学", applicableGrades: null,
+  objective: "考查小学生对数学概念和运算规则的判断能力",
+  materialSpec: "每道题给一个数学命题判断对错",
+  questionStructure: "3-5题，对的打✓错的打✗", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: {
+    容易: "基础概念，错因明显，1-3年级",
+    中等: "需简单推理，3-4年级",
+    困难: "易混淆概念辨析，5-6年级",
+  },
+  constraints: ["命题对错明确", "课标范围"],
+  outputTemplate: `## 判断题（对的打✓，错的打✗）
+1. 所有的偶数都是合数。（ ）
+2. 圆的周长与直径的比值是π。（ ）
+---
+**答案与解析**
+**1. 考点：**数的分类 **答案：**✗ **解析：**2是偶数但不是合数
+**2. 考点：**圆的性质 **答案：**✓ **解析：**周长÷直径=π`,
+  validationRules: ["命题对错明确", "课标范围"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+
+const 找规律_小学数: RuleSchema = {
+  typeName: "找规律", stage: "小学", subject: "数学", applicableGrades: null,
+  objective: "考查小学生观察发现数学规律的能力",
+  materialSpec: "每道题给数列或图形序列，找规律填空",
+  questionStructure: "2-3题按复杂度递增", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: {
+    容易: "简单等差规律，1-2年级",
+    中等: "等比或两步规律，3-4年级",
+    困难: "多层规律，5-6年级",
+  },
+  constraints: ["规律唯一确定", "适合年级"],
+  outputTemplate: `## 找规律
+1. 1, 3, 5, 7, ______, 11
+2. 2, 4, 8, 16, ______, 64
+---
+**答案与解析**
+**1. 考点：**等差数列 **答案：**9 **解析：**每个数+2
+**2. 考点：**等比数列 **答案：**32 **解析：**每个数×2`,
+  validationRules: ["规律唯一", "适合年级"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+
+const 应用题_小学数: RuleSchema = {
+  typeName: "应用题", stage: "小学", subject: "数学", applicableGrades: null,
+  objective: "考查小学生运用数学解决实际问题的能力",
+  materialSpec: "每道题给出生活情境，列式解答。情境贴近学生",
+  questionStructure: "2-3题按难度递增", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: {
+    容易: "一步运算，情境简单，1-3年级",
+    中等: "两步运算，3-4年级",
+    困难: "多步综合或分数比例，5-6年级",
+  },
+  constraints: ["情境贴近生活", "数据合理", "答案唯一带单位"],
+  outputTemplate: `## 应用题
+1. 小明买3支铅笔每支2元，又买5元橡皮。一共花了多少钱？
+---
+**答案与解析**
+**1. 考点：**购物问题 **答案：**11元 **解析：**3×2=6元，6+5=11元`,
+  validationRules: ["情境合理", "数据可计算", "单位正确"], answerOpenness: 1, structureComplexity: 1, riskLevel: 0,
+};
+
+const 图形题_小学数: RuleSchema = {
+  typeName: "图形题", stage: "小学", subject: "数学", applicableGrades: null,
+  objective: "考查小学生对几何图形认识、测量和计算能力",
+  materialSpec: "每道题涉及图形辨认或周长面积计算。1-3年级图形辨认，4-6年级计算",
+  questionStructure: "2-3题按年级递增", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: {
+    容易: "图形辨认，基本周长，1-3年级",
+    中等: "长方形正方形面积，3-4年级",
+    困难: "圆周长面积，圆柱体积，5-6年级",
+  },
+  constraints: ["图形描述清晰", "数据适合年级", "答案带单位"],
+  outputTemplate: `## 图形题
+1. 长方形长8cm宽5cm，面积是多少？
+---
+**答案与解析**
+**1. 考点：**长方形面积 **答案：**40平方厘米 **解析：**8×5=40（平方厘米）`,
+  validationRules: ["数据合理", "公式正确", "带单位"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+
+const 统计图表_小学数: RuleSchema = {
+  typeName: "统计图表", stage: "小学", subject: "数学", applicableGrades: null,
+  objective: "考查小学生读取分析统计图表的能力",
+  materialSpec: "每道题配数据表或统计描述。低年级分类统计，高年级条形图平均数",
+  questionStructure: "1-2题读取分析数据", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: {
+    容易: "简单分类统计直接读取，1-3年级",
+    中等: "条形统计图计算平均数，3-4年级",
+    困难: "扇形图或可能性计算，5-6年级",
+  },
+  constraints: ["数据简单明了", "适合小学生", "计算不超纲"],
+  outputTemplate: `## 统计图表
+1. 喜欢苹果8人香蕉12人橘子6人葡萄4人。喜欢香蕉比葡萄多几人？
+---
+**答案与解析**
+**1. 考点：**数据比较 **答案：**8人 **解析：**12-4=8（人）`,
+  validationRules: ["数据合理", "计算正确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+
+const 解决问题_小学数: RuleSchema = {
+  typeName: "解决问题", stage: "小学", subject: "数学", applicableGrades: null,
+  objective: "考查小学生综合运用数学解决实际问题的能力",
+  materialSpec: "每道题给出综合实际问题（购物/行程/工程），4-6年级为主",
+  questionStructure: "1-2题分析求解作答", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: {
+    容易: "简单购物计算，3-4年级",
+    中等: "行程或工程问题，4-5年级",
+    困难: "多步综合含分数比例，5-6年级",
+  },
+  constraints: ["情境真实合理", "数据适合年级", "步骤清晰带单位"],
+  outputTemplate: `## 解决问题
+1. 汽车每小时60千米，3小时到达。两地相距多少？
+---
+**答案与解析**
+**1. 考点：**行程问题 **答案：**180千米 **解析：**60×3=180（千米）`,
+  validationRules: ["情境合理", "步骤完整", "结果准确带单位"], answerOpenness: 1, structureComplexity: 1, riskLevel: 0,
+};
+
+// ====== 初中数学 ======
+const 实数运算: RuleSchema = {
+  typeName: "实数运算", stage: "初中", subject: "数学", applicableGrades: null,
+  objective: "考查相反数、绝对值、科学记数法、幂的运算等实数基础概念",
+  materialSpec: "每道题考查一个实数基础概念，选择题或填空题",
+  questionStructure: "2-3题：基础概念→简单计算→综合判断", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "直接求相反数/绝对值，七年级", 中等: "科学记数法或幂的运算，八年级", 困难: "含参绝对值讨论，九年级" },
+  constraints: ["考查课标知识点", "数字简洁", "答案唯一"],
+  outputTemplate: `## 实数运算
+1. -5的相反数是（ ）A. 5 B. -5 C. 1/5 D. -1/5
+---
+**答案与解析**
+**1. 考点：**相反数 **答案：**A **解析：**-5的相反数是5`,
+  validationRules: ["知识在课标范围", "答案准确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+const 代数式_初中数: RuleSchema = {
+  typeName: "代数式", stage: "初中", subject: "数学", applicableGrades: null,
+  objective: "考查因式分解、分式化简、二次根式等代数式运算",
+  materialSpec: "每道题为代数式化简或计算题",
+  questionStructure: "2-3题：因式分解→分式化简→二次根式", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "简单因式分解（提取公因式），七年级", 中等: "公式法因式分解或分式化简，八年级", 困难: "综合化简求值，九年级" },
+  constraints: ["代数式规范", "步骤清晰", "结果最简"],
+  outputTemplate: `## 代数式
+1. 因式分解：x² - 9 =
+---
+**答案与解析**
+**1. 考点：**平方差公式 **答案：**(x+3)(x-3) **解析：**x²-9=(x+3)(x-3)`,
+  validationRules: ["代数式规范", "结果最简"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+const 方程与不等式_初中数: RuleSchema = {
+  typeName: "方程与不等式", stage: "初中", subject: "数学", applicableGrades: null,
+  objective: "考查一元一次方程、一元二次方程、不等式组的求解和应用",
+  materialSpec: "每道题为方程或不等式求解题",
+  questionStructure: "2-3题：一次方程→二次方程→不等式组", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "一元一次方程求解，七年级", 中等: "一元二次方程（判别式），八年级", 困难: "含参方程或不等式组应用，九年级" },
+  constraints: ["方程有解", "步骤完整"],
+  outputTemplate: `## 方程与不等式
+1. 解方程：2x + 3 = 11
+---
+**答案与解析**
+**1. 考点：**一元一次方程 **答案：**x = 4 **解析：**2x = 8, x = 4`,
+  validationRules: ["步骤完整", "结果准确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+const 函数_初中数: RuleSchema = {
+  typeName: "函数", stage: "初中", subject: "数学", applicableGrades: null,
+  objective: "考查一次函数、二次函数、反比例函数的图像性质和综合应用",
+  materialSpec: "每道题涉及函数表达式、图像或性质分析",
+  questionStructure: "2-3题：表达式→图像性质→综合应用", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "一次函数表达式求值，八年级", 中等: "二次函数顶点或交点，九年级", 困难: "函数综合或压轴题，九年级" },
+  constraints: ["函数定义清晰", "图像描述准确", "数据有代表性"],
+  outputTemplate: `## 函数
+1. 一次函数y=2x+1，当x=3时，y=？
+---
+**答案与解析**
+**1. 考点：**函数求值 **答案：**7 **解析：**y=2×3+1=7`,
+  validationRules: ["计算准确", "逻辑清晰"], answerOpenness: 1, structureComplexity: 1, riskLevel: 1,
+};
+const 三角形与全等: RuleSchema = {
+  typeName: "三角形与全等", stage: "初中", subject: "数学", applicableGrades: null,
+  objective: "考查三角形性质、全等判定和勾股定理的应用",
+  materialSpec: "每道题涉及三角形边角计算或全等证明",
+  questionStructure: "2-3题：三角形性质→全等判定→勾股定理", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "三角形内角和或边长计算，七年级", 中等: "全等三角形判定，八年级", 困难: "勾股定理综合应用，九年级" },
+  constraints: ["图形描述清晰", "数据合理", "逻辑正确"],
+  outputTemplate: `## 三角形与全等
+1. 直角三角形两直角边分别为3、4，斜边长为？
+---
+**答案与解析**
+**1. 考点：**勾股定理 **答案：**5 **解析：**√(3²+4²)=√25=5`,
+  validationRules: ["图形清晰", "逻辑正确"], answerOpenness: 1, structureComplexity: 1, riskLevel: 1,
+};
+const 四边形_初中数: RuleSchema = {
+  typeName: "四边形", stage: "初中", subject: "数学", applicableGrades: null,
+  objective: "考查平行四边形、矩形、菱形、梯形的性质和判定",
+  materialSpec: "每道题涉及四边形的性质判断或角度边长计算",
+  questionStructure: "2-3题：性质判断→角度计算→综合证明", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "平行四边形性质判断，八年级", 中等: "矩形菱形角度计算，八年级", 困难: "四边形综合证明，九年级" },
+  constraints: ["图形描述准确", "数据合理"],
+  outputTemplate: `## 四边形
+1. 矩形ABCD中，AB=6, BC=8，对角线AC=？
+---
+**答案与解析**
+**1. 考点：**矩形对角线 **答案：**10 **解析：**AC=√(6²+8²)=√100=10`,
+  validationRules: ["图形准确", "计算正确"], answerOpenness: 0, structureComplexity: 1, riskLevel: 1,
+};
+const 相似与三角: RuleSchema = {
+  typeName: "相似与三角", stage: "初中", subject: "数学", applicableGrades: null,
+  objective: "考查相似三角形判定和锐角三角函数的应用",
+  materialSpec: "每道题涉及相似比计算或sin/cos/tan求值",
+  questionStructure: "2-3题：相似→三角函数→解直角三角形", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "简单相似比计算，九年级", 中等: "锐角三角函数求值，九年级", 困难: "解直角三角形综合应用，九年级" },
+  constraints: ["图形描述清晰", "三角函数值准确"],
+  outputTemplate: `## 相似与三角
+1. 在Rt△ABC中，∠C=90°，AB=10, BC=6，sinA=？
+---
+**答案与解析**
+**1. 考点：**锐角三角函数 **答案：**0.6 **解析：**sinA=对边/斜边=BC/AB=6/10=0.6`,
+  validationRules: ["准确", "图形清晰"], answerOpenness: 0, structureComplexity: 1, riskLevel: 1,
+};
+const 圆_初中数: RuleSchema = {
+  typeName: "圆", stage: "初中", subject: "数学", applicableGrades: null,
+  objective: "考查垂径定理、圆周角、切线等圆的性质",
+  materialSpec: "每道题涉及圆的基本性质或角度长度计算",
+  questionStructure: "2-3题：垂径定理→圆周角→切线", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "垂径定理直接应用，九年级", 中等: "圆周角定理推理，九年级", 困难: "切线性质综合题，九年级" },
+  constraints: ["圆的性质描述准确", "数据合理"],
+  outputTemplate: `## 圆
+1. ⊙O中，弦AB=8，圆心到弦距离3，半径=？
+---
+**答案与解析**
+**1. 考点：**垂径定理 **答案：**5 **解析：**r²=3²+(8/2)²=9+16=25, r=5`,
+  validationRules: ["性质准确", "计算正确"], answerOpenness: 0, structureComplexity: 1, riskLevel: 1,
+};
+const 图形变换_初中数: RuleSchema = {
+  typeName: "图形变换", stage: "初中", subject: "数学", applicableGrades: null,
+  objective: "考查平移、旋转、轴对称、折叠等图形变换",
+  materialSpec: "每道题涉及图形变换后的位置或性质判断",
+  questionStructure: "2-3题：平移→旋转→轴对称折叠", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "平移后坐标变换，七年级", 中等: "旋转后角度计算，八年级", 困难: "折叠或综合变换，九年级" },
+  constraints: ["变换描述准确", "数据合理"],
+  outputTemplate: `## 图形变换
+1. 点A(2,3)向右平移4个单位后的坐标是？
+---
+**答案与解析**
+**1. 考点：**平移变换 **答案：**(6,3) **解析：**向右平移横坐标+4，(2+4,3)=(6,3)`,
+  validationRules: ["变换准确", "数据合理"], answerOpenness: 0, structureComplexity: 1, riskLevel: 0,
+};
+const 统计与概率_初中数: RuleSchema = {
+  typeName: "统计与概率", stage: "初中", subject: "数学", applicableGrades: null,
+  objective: "考查平均数中位数众数方差、统计图、概率计算",
+  materialSpec: "每道题给数据集或概率情境，计算统计量或概率",
+  questionStructure: "2-3题：统计量→统计图→概率", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "直接计算平均数中位数，七年级", 中等: "统计图分析或简单概率，八年级", 困难: "列表法/树状图求概率，九年级" },
+  constraints: ["数据合理", "概率计算规范"],
+  outputTemplate: `## 统计与概率
+1. 数据2,4,4,6,8的中位数是？
+---
+**答案与解析**
+**1. 考点：**中位数 **答案：**4 **解析：**排序后中间位置的数是4`,
+  validationRules: ["数据合理", "计算准确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+
+// ====== 高中数学 ======
+const 集合与逻辑_高中数: RuleSchema = {
+  typeName: "集合与逻辑", stage: "高中", subject: "数学", applicableGrades: null,
+  objective: "考查集合运算和常用逻辑用语的掌握",
+  materialSpec: "每道题涉及集合交集并集补集或充分必要条件判断",
+  questionStructure: "2-3题：集合运算→逻辑判断", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "直接集合交并运算，高一", 中等: "含参集合运算，高二", 困难: "与函数定义域结合，高三" },
+  constraints: ["集合表示规范", "逻辑正确"],
+  outputTemplate: `## 集合与逻辑
+1. A={1,2,3}, B={2,3,4}, A∩B=？
+---
+**答案与解析**
+**1. 考点：**交集运算 **答案：**{2,3} **解析：**交集为AB共同元素`,
+  validationRules: ["集合规范", "逻辑正确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+const 函数与导数_高中数: RuleSchema = {
+  typeName: "函数与导数", stage: "高中", subject: "数学", applicableGrades: null,
+  objective: "考查函数性质、指对函数、导数及其应用",
+  materialSpec: "每道题涉及函数性质分析或导数计算应用",
+  questionStructure: "2-3题：函数性质→导数计算→导数应用", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "函数奇偶性判断或简单求导，高一", 中等: "导数求切线或单调区间，高二", 困难: "导数压轴含参讨论，高三" },
+  constraints: ["函数定义清晰", "求导步骤完整"],
+  outputTemplate: `## 函数与导数
+1. f(x)=x³-3x，求f'(1)
+---
+**答案与解析**
+**1. 考点：**导数计算 **答案：**0 **解析：**f'(x)=3x²-3, f'(1)=3-3=0`,
+  validationRules: ["函数正确", "求导准确"], answerOpenness: 1, structureComplexity: 1, riskLevel: 1,
+};
+const 三角函数_高中数: RuleSchema = {
+  typeName: "三角函数", stage: "高中", subject: "数学", applicableGrades: null,
+  objective: "考查三角函数图像性质、恒等变换和解三角形",
+  materialSpec: "每道题涉及三角求值、图像分析或解三角形",
+  questionStructure: "2-3题：三角求值→图像性质→解三角形", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "直接三角求值，高一", 中等: "恒等变换化简，高二", 困难: "解三角形综合应用，高三" },
+  constraints: ["三角函数值准确", "公式运用正确"],
+  outputTemplate: `## 三角函数
+1. sin30° + cos60° = ？
+---
+**答案与解析**
+**1. 考点：**特殊角三角值 **答案：**1 **解析：**sin30°=1/2, cos60°=1/2, 和为1`,
+  validationRules: ["公式正确", "计算准确"], answerOpenness: 0, structureComplexity: 1, riskLevel: 1,
+};
+const 数列_高中数: RuleSchema = {
+  typeName: "数列", stage: "高中", subject: "数学", applicableGrades: null,
+  objective: "考查等差等比数列的通项、求和及综合应用",
+  materialSpec: "每道题涉及数列通项或求和的推导计算",
+  questionStructure: "2-3题：等差数列→等比数列→数列求和", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "等差数列通项或求和，高二", 中等: "等比数列通项或求和，高二", 困难: "数列综合或放缩，高三" },
+  constraints: ["数列定义清晰", "公式运用正确"],
+  outputTemplate: `## 数列
+1. 等差数列首项2公差3，第5项=？
+---
+**答案与解析**
+**1. 考点：**等差数列通项 **答案：**14 **解析：**a₅ = a₁+4d = 2+4×3 = 14`,
+  validationRules: ["公式正确", "计算准确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+const 平面向量_高中数: RuleSchema = {
+  typeName: "平面向量", stage: "高中", subject: "数学", applicableGrades: null,
+  objective: "考查向量数量积、坐标运算及应用",
+  materialSpec: "每道题涉及向量运算或坐标表示",
+  questionStructure: "2-3题：向量运算→数量积→坐标运算", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "向量加减或数乘，高一", 中等: "数量积坐标计算，高二", 困难: "向量综合几何应用，高三" },
+  constraints: ["向量表示规范", "运算准确"],
+  outputTemplate: `## 平面向量
+1. a⃗=(3,4), b⃗=(1,2), a⃗·b⃗=？
+---
+**答案与解析**
+**1. 考点：**向量数量积 **答案：**11 **解析：**a⃗·b⃗ = 3×1+4×2 = 3+8 = 11`,
+  validationRules: ["向量规范", "计算准确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0,
+};
+const 立体几何_高中数: RuleSchema = {
+  typeName: "立体几何", stage: "高中", subject: "数学", applicableGrades: null,
+  objective: "考查线面关系、二面角和体积计算",
+  materialSpec: "每道题涉及空间线面位置关系或体积表面积计算",
+  questionStructure: "2-3题：线面判断→角度计算→体积", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "线面平行垂直判断，高一", 中等: "二面角计算，高二", 困难: "立体几何综合题，高三" },
+  constraints: ["图形描述准确", "空间关系清晰"],
+  outputTemplate: `## 立体几何
+1. 正方体棱长为2，体积=？
+---
+**答案与解析**
+**1. 考点：**体积计算 **答案：**8 **解析：**V = 2³ = 8`,
+  validationRules: ["图形准确", "计算正确"], answerOpenness: 1, structureComplexity: 1, riskLevel: 1,
+};
+const 解析几何_高中数: RuleSchema = {
+  typeName: "解析几何", stage: "高中", subject: "数学", applicableGrades: null,
+  objective: "考查椭圆、双曲线、抛物线的方程和性质",
+  materialSpec: "每道题涉及圆锥曲线方程、离心率或弦长计算",
+  questionStructure: "2-3题：方程→性质→弦长综合", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "椭圆标准方程应用，高二", 中等: "离心率或焦点坐标，高二", 困难: "圆锥曲线综合压轴，高三" },
+  constraints: ["曲线方程规范", "几何性质准确"],
+  outputTemplate: `## 解析几何
+1. 椭圆x²/16+y²/9=1的离心率e=？
+---
+**答案与解析**
+**1. 考点：**椭圆离心率 **答案：**√7/4 **解析：**c²=a²-b²=7, c=√7, e=c/a=√7/4`,
+  validationRules: ["方程规范", "性质准确"], answerOpenness: 1, structureComplexity: 1, riskLevel: 2,
+};
+const 概率统计_高中数: RuleSchema = {
+  typeName: "概率统计", stage: "高中", subject: "数学", applicableGrades: null,
+  objective: "考查排列组合、古典概型、条件概率、分布列和统计推断",
+  materialSpec: "每道题涉及计数或概率计算",
+  questionStructure: "2-3题：排列组合→概率计算→统计推断", answerStructure: "single" as const, answerFormat: "",
+  difficultyControl: { 容易: "简单排列组合计数，高二", 中等: "古典概型或条件概率，高三", 困难: "分布列期望综合，高三" },
+  constraints: ["概率范围[0,1]", "计数方法正确"],
+  outputTemplate: `## 概率统计
+1. 从5人中选3人，有多少种选法？
+---
+**答案与解析**
+**1. 考点：**组合计数 **答案：**10 **解析：**C(5,3) = 5!/(3!2!) = 10`,
+  validationRules: ["概率范围", "计数正确"], answerOpenness: 0, structureComplexity: 1, riskLevel: 1,
+};
+
+// ====== 小学英语 ======
+const 单词拼写_英语: RuleSchema = { typeName: "单词拼写", stage: "小学", subject: "英语", applicableGrades: null, objective: "考查小学生英语单词的正确拼写能力", materialSpec: "每道题给出图片或中文提示，写出英文单词。3-6年级，词汇来自课本", questionStructure: "3-5题：看图写词→看中文写词→首字母提示", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "常见名词（颜色/动物/家庭成员），3年级", 中等: "日常词汇（食物/学校/天气），4-5年级", 困难: "抽象词汇或短语，5-6年级" }, constraints: ["词汇在课标范围", "拼写唯一正确", "提示清晰"], outputTemplate: `## 单词拼写\n1. 根据图片写出单词：🐱 → ______\n2. 根据中文写出单词：苹果 → ______\n---\n**答案与解析**\n**1. 考点：**动物词汇 **答案：**cat **解析：**猫的英文单词\n**2. 考点：**水果词汇 **答案：**apple **解析：**苹果的英文单词`, validationRules: ["词汇课标内", "拼写正确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0, };
+const 选词填空_英语小: RuleSchema = { typeName: "选词填空", stage: "小学", subject: "英语", applicableGrades: null, objective: "考查小学生在语境中选择恰当英语词汇的能力", materialSpec: "每道题给句子和候选词，选择正确单词填入。3-6年级", questionStructure: "3-5题，覆盖不同词性", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "名词选择（图片提示），3-4年级", 中等: "动词/形容词选择，4-5年级", 困难: "近义词辨析或短语选择，5-6年级" }, constraints: ["候选词在课标范围", "语境提示充分", "答案唯一"], outputTemplate: `## 选词填空\n1. I have a ______ (dog / cat / book).\n---\n**答案与解析**\n**1. 考点：**名词选择 **答案：**dog **解析：**a表示一个，后面接单数名词`, validationRules: ["词汇课标内", "语境充分", "答案唯一"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0, };
+const 单项选择_英语小: RuleSchema = { typeName: "单项选择", stage: "小学", subject: "英语", applicableGrades: null, objective: "考查小学生对基础语法和词汇的辨析能力", materialSpec: "每道题给4个选项，选择正确答案。覆盖时态、介词、代词等", questionStructure: "3-5题：词汇辨析→语法选择→交际用语", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "简单词汇或be动词选择，3-4年级", 中等: "时态或介词选择，4-5年级", 困难: "综合语法或交际用语，5-6年级" }, constraints: ["选项为真实词汇", "答案唯一", "知识点在课标范围"], outputTemplate: `## 单项选择\n1. She ______ a student.\nA. am B. is C. are D. be\n---\n**答案与解析**\n**1. 考点：**be动词 **答案：**B **解析：**She是第三人称单数，用is`, validationRules: ["答案唯一", "知识点准确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0, };
+const 补全对话_英语小: RuleSchema = { typeName: "补全对话", stage: "小学", subject: "英语", applicableGrades: null, objective: "考查小学生在情境中运用英语进行简单交际的能力", materialSpec: "每道题给对话片段和选项，选择正确句子补全。4-6年级", questionStructure: "1-2段对话，每段3-5空", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "简单问候和自我介绍，3-4年级", 中等: "购物或问路场景，4-5年级", 困难: "综合场景对话，5-6年级" }, constraints: ["情境贴近小学生生活", "选项句子简短", "逻辑清晰"], outputTemplate: `## 补全对话\nA: Good morning!\nB: ______\nA. Good morning! B. Goodbye! C. Thank you.\n---\n**答案与解析**\n**1. 考点：**问候用语 **答案：**A **解析：**Good morning的回答也是Good morning`, validationRules: ["情境合理", "逻辑正确"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0, };
+const 阅读理解_英语小: RuleSchema = { typeName: "阅读理解", stage: "小学", subject: "英语", applicableGrades: null, objective: "考查小学生英语短文阅读理解能力", materialSpec: "每篇短文50-80词（3-4年级）或80-120词（5-6年级），附3-5道判断/选择题", questionStructure: "1篇短文→判断对错→选择填空", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "短文50-80词，直接信息提取，3-4年级", 中等: "短文80-100词，简单推理，4-5年级", 困难: "短文100-120词，综合理解，5-6年级" }, constraints: ["短文适合年级水平", "题目从文中可找答案", "词汇不超纲"], outputTemplate: `## 阅读理解\n阅读短文，判断对错(T/F)。\nTom is a student. He likes playing football...\n1. Tom is a teacher. ( )\n2. Tom likes football. ( )\n---\n**答案与解析**\n**1. 考点：**细节判断 **答案：**F **解析：**文中说Tom is a student\n**2. 考点：**细节判断 **答案：**T **解析：**文中说likes playing football`, validationRules: ["短文适合年级", "答案有文本依据"], answerOpenness: 0, structureComplexity: 1, riskLevel: 0, };
+const 书面表达_英语小: RuleSchema = { typeName: "书面表达", stage: "小学", subject: "英语", applicableGrades: null, objective: "考查小学生英语简单写作能力", materialSpec: "每道题给主题或图片提示，写3-5句（3-4年级）或5-8句（5-6年级）短文", questionStructure: "1题：仿写→命题写作", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "仿写句子（给模板），3-4年级", 中等: "看图写话，4-5年级", 困难: "命题作文（如My Family），5-6年级" }, constraints: ["主题贴近学生生活", "提供写作支架", "词数要求合理"], outputTemplate: `## 书面表达\n请以\"My Friend\"为题，写5句话介绍你的朋友。\n---\n**答案与解析**\n**考点：**人物描写 **范文：**My friend is Tom. He is 10 years old. He likes playing football. We often play together. He is a good friend.\n**解析：**1.引出主题 2.年龄 3.爱好 4.共同活动 5.评价`, validationRules: ["主题贴近生活", "词数合理"], answerOpenness: 2, structureComplexity: 1, riskLevel: 1, };
+
+// ====== 初中英语 ======
+const 语法选择_初中英: RuleSchema = { typeName: "语法选择", stage: "初中", subject: "英语", applicableGrades: null, objective: "考查初中生对英语语法规则的掌握", materialSpec: "每道题为单项选择，覆盖时态、语态、从句、非谓语等语法点", questionStructure: "3-5题，覆盖不同语法点", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "基础时态（一般现在/过去），七年级", 中等: "完成时或被动语态，八年级", 困难: "从句或非谓语，九年级" }, constraints: ["语法点准确", "选项规范", "句子地道"], outputTemplate: `## 语法选择\n1. I ______ English for three years.\nA. learn B. learned C. have learned D. will learn\n---\n**答案与解析**\n**1. 考点：**现在完成时 **答案：**C **解析：**for three years表示持续，用现在完成时`, validationRules: ["语法准确", "选项规范"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0, };
+const 完形填空_初中英: RuleSchema = { typeName: "完形填空", stage: "初中", subject: "英语", applicableGrades: null, objective: "考查初中生在语篇中综合运用词汇和语法的能力", materialSpec: "一篇短文120-180词，设10空。覆盖词汇辨析、上下文逻辑、固定搭配", questionStructure: "1篇短文，10空，每题4选项", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "短文120词，选项差异明显，七年级", 中等: "短文150词，含近义词辨析，八年级", 困难: "短文180词，逻辑推理空多，九年级" }, constraints: ["短文难度适合年级", "选项合理", "首尾句不设空"], outputTemplate: `## 完形填空\n阅读短文，选择最佳选项。\nTom is a middle school student. He __1__ up at 6:30 every morning...\n1. A. gets B. got C. getting D. get\n---\n**答案与解析**\n**1. 考点：**时态一致 **答案：**A **解析：**一般现在时第三人称单数，gets`, validationRules: ["难度适合", "选项合理"], answerOpenness: 0, structureComplexity: 1, riskLevel: 1, };
+const 词汇运用_初中英: RuleSchema = { typeName: "词汇运用", stage: "初中", subject: "英语", applicableGrades: null, objective: "考查初中生根据语境正确使用英语词汇的能力", materialSpec: "每道题给语境，要求根据首字母或中文写出单词，或用适当形式填空", questionStructure: "3-5题：首字母→适当形式→选词填空", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "首字母填空（常见词），七年级", 中等: "适当形式填空（时态/单复数），八年级", 困难: "综合词汇运用，九年级" }, constraints: ["词汇在课标范围", "语境提示充分", "答案唯一"], outputTemplate: `## 词汇运用\n1. The weather is s______ today. Let's go out!\n2. He ______ (go) to school by bus every day.\n---\n**答案与解析**\n**1. 考点：**首字母填空 **答案：**sunny **解析：**根据语境推测天气好\n**2. 考点：**动词形式 **答案：**goes **解析：**一般现在时第三人称单数`, validationRules: ["词汇课标内", "语境充分"], answerOpenness: 0, structureComplexity: 0, riskLevel: 0, };
+const 任务型阅读_初中英: RuleSchema = { typeName: "任务型阅读", stage: "初中", subject: "英语", applicableGrades: null, objective: "考查初中生获取信息并完成指定任务的能力", materialSpec: "一篇短文100-180词，附3-5道信息匹配/表格填空/问答题", questionStructure: "1篇短文，3-5题任务型", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "信息匹配（直接对应），七年级", 中等: "表格填空（提取关键信息），八年级", 困难: "简答题（需组织语言），九年级" }, constraints: ["任务明确", "短文信息充分", "答案简洁"], outputTemplate: `## 任务型阅读\n阅读短文，完成表格。\nName: Tom Age: 14 Hobby: basketball...\n| 项目 | 信息 |\n|------|------|\n| 姓名 | ____ |\n| 年龄 | ____ |\n---\n**答案与解析**\n**1. 考点：**信息提取 **答案：**Tom **解析：**文中Name: Tom\n**2. 考点：**信息提取 **答案：**14 **解析：**文中Age: 14`, validationRules: ["任务明确", "信息充分"], answerOpenness: 0, structureComplexity: 1, riskLevel: 0, };
+
+const 阅读理解_初中英: RuleSchema = { typeName: "阅读理解", stage: "初中", subject: "英语", applicableGrades: null, objective: "考查初中生英语阅读能力，覆盖细节理解、推理判断、主旨大意和词义猜测", materialSpec: "一篇短文120-200词，附3-5道选择题", questionStructure: "1篇短文→细节题→推理题→主旨题", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "短文120词，直接信息提取，七年级", 中等: "短文160词，推理判断题，八年级", 困难: "短文200词，深层理解含生词，九年级" }, constraints: ["短文适合年级", "题目从文中可找依据", "选项合理"], outputTemplate: `## 阅读理解\n阅读短文，选择最佳答案。\n[短文120-200词]\n1. What is the main idea of the passage?\nA. ... B. ... C. ... D. ...\n---\n**答案与解析**\n**1. 考点：**主旨大意 **答案：**B **解析：**全文围绕...展开，故选B`, validationRules: ["短文适合年级", "答案有依据"], answerOpenness: 0, structureComplexity: 1, riskLevel: 0, };
+const 书面表达_初中英: RuleSchema = { typeName: "书面表达", stage: "初中", subject: "英语", applicableGrades: null, objective: "考查初中生英语写作能力", materialSpec: "每道题给写作情境和要点，写80-100词短文（应用文/话题作文）", questionStructure: "1题：给情境→写作要点→80-100词", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "简单话题（My School Day），七年级", 中等: "应用文（感谢信/建议），八年级", 困难: "社会话题或观点表达，九年级" }, constraints: ["情境真实", "词数80-100", "要点明确"], outputTemplate: `## 书面表达\n假设你是李华，请给你的笔友Tom写一封信，介绍你的校园生活。\n要点：1.课程安排 2.课后活动 3.你的感受\n词数80-100。\n---\n**答案与解析**\n**考点：**书信写作 **范文：**Dear Tom, I'm glad to tell you about my school life...\n**解析：**1.称呼 2.课程 3.活动 4.感受 5.结束语`, validationRules: ["情境真实", "词数合理"], answerOpenness: 2, structureComplexity: 1, riskLevel: 1, };
+
+// ====== 高中英语 ======
+const 阅读理解_高中英: RuleSchema = { typeName: "阅读理解", stage: "高中", subject: "英语", applicableGrades: null, objective: "考查高中生英语深度阅读能力，覆盖细节、推理、主旨、词义和态度", materialSpec: "一篇短文250-350词，附4-5道选择题", questionStructure: "1篇短文→细节→推理→主旨→词义/态度", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "短文250词，直接细节题，高一", 中等: "短文300词，推理判断为主，高二", 困难: "短文350词，深层理解含批判思维，高三" }, constraints: ["短文地道规范", "题目有区分度", "选项合理"], outputTemplate: `## 阅读理解\n阅读短文，选择最佳答案。\n[短文250-350词]\n1. What can we infer from the first paragraph?\nA. ... B. ... C. ... D. ...\n---\n**答案与解析**\n**1. 考点：**推理判断 **答案：**C **解析：**第一段暗示了...`, validationRules: ["短文规范", "答案有依据"], answerOpenness: 0, structureComplexity: 1, riskLevel: 1, };
+const 七选五_高中英: RuleSchema = { typeName: "七选五", stage: "高中", subject: "英语", applicableGrades: null, objective: "考查高中生对语篇结构和逻辑连贯的理解能力", materialSpec: "一篇短文200-300词，设5空，从7个选项中选5个填入。选项为完整句子", questionStructure: "1篇短文5空，7选项选5", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "段落主旨概括（小标题明显），高一", 中等: "逻辑衔接词判断（转折/因果），高二", 困难: "上下文综合呼应，高三" }, constraints: ["文章结构清晰", "选项逻辑合理", "干扰项有迷惑性但不误导"], outputTemplate: `## 七选五\n根据短文内容，从选项中选出能填入空白处的最佳选项（两项多余）。\n[短文200-300词，5处空白]\nA. ... B. ... C. ... D. ... E. ... F. ... G. ...\n---\n**答案与解析**\n**1. 考点：**段落主旨 **答案：**C **解析：**此空位于段首，需概括本段主题`, validationRules: ["结构清晰", "逻辑合理"], answerOpenness: 0, structureComplexity: 1, riskLevel: 1, };
+const 完形填空_高中英: RuleSchema = { typeName: "完形填空", stage: "高中", subject: "英语", applicableGrades: null, objective: "考查高中生在语篇层面综合运用语言的能力", materialSpec: "一篇短文250-350词（记叙文为主），设15空，每题4选项", questionStructure: "1篇短文15空", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "短文250词，词汇辨析为主，高一", 中等: "短文300词，熟词生义考查，高二", 困难: "短文350词，情感线索+逻辑推理，高三" }, constraints: ["短文难度匹配年级", "选项合理", "覆盖词汇/逻辑/搭配"], outputTemplate: `## 完形填空\n阅读短文，选择最佳选项。\n[记叙文250-350词，15处空白]\n1. A. ... B. ... C. ... D. ...\n---\n**答案与解析**\n**1. 考点：**词汇辨析 **答案：**A **解析：**根据上下文语境选择`, validationRules: ["难度匹配", "选项合理"], answerOpenness: 0, structureComplexity: 1, riskLevel: 1, };
+const 语法填空_高中英: RuleSchema = { typeName: "语法填空", stage: "高中", subject: "英语", applicableGrades: null, objective: "考查高中英语语法综合运用能力", materialSpec: "一篇短文200词左右，设10空。覆盖动词时态语态、非谓语、词性转换、连词介词等", questionStructure: "1篇短文10空，部分给提示词，部分无提示", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "基础时态语态，提示词明显，高一", 中等: "非谓语+词性转换混合，高二", 困难: "句间逻辑判断，无提示空多，高三" }, constraints: ["短文地道规范", "考点分布合理", "答案唯一"], outputTemplate: `## 语法填空\n阅读短文，在空白处填入适当内容。\n[短文约200词，10处空白，部分给提示词]\n---\n**答案与解析**\n**1. 考点：**时态 **答案：**was **解析：**根据上下文时间状语判断`, validationRules: ["短文规范", "考点合理", "答案唯一"], answerOpenness: 0, structureComplexity: 1, riskLevel: 1, };
+const 应用文写作_高中英: RuleSchema = { typeName: "应用文写作", stage: "高中", subject: "英语", applicableGrades: null, objective: "考查高中生英语应用文写作能力", materialSpec: "每道题给写作情境和要求，写80词左右应用文（建议信/邀请信/通知/邮件等）", questionStructure: "1题，给情境→写作要求→80词", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "邀请信/通知（格式固定），高一", 中等: "建议信/邮件（需表达观点），高二", 困难: "投稿/倡议书（观点+论证），高三" }, constraints: ["情境真实", "词数80词左右", "提供写作要点"], outputTemplate: `## 应用文写作\n假设你是李华，请给外教Mr. Smith写一封邮件，邀请他参加学校的英语演讲比赛。\n要点：1.时间地点 2.比赛主题 3.表达期待\n词数80左右。\n---\n**答案与解析**\n**考点：**邀请信写作 **范文：**Dear Mr. Smith, I'm writing to invite you to...\n**解析：**1.称呼与目的 2.时间地点 3.比赛主题 4.表达期待 5.正式结束语`, validationRules: ["情境真实", "词数合理", "要点齐全"], answerOpenness: 2, structureComplexity: 1, riskLevel: 1, };
+const 读后续写_高中英: RuleSchema = { typeName: "读后续写", stage: "高中", subject: "英语", applicableGrades: null, objective: "考查高中生英语创造性写作和语篇衔接能力", materialSpec: "给一篇故事开头（约350词），续写两段（每段开头语已给），共150词左右", questionStructure: "1题：读原文→续写两段（段首语已给）", answerStructure: "single" as const, answerFormat: "", difficultyControl: { 容易: "情节线索清晰，续写方向明确，高一", 中等: "需前文细节呼应，情感表达，高二", 困难: "开放式结尾，需创意构思，高三" }, constraints: ["原文350词左右", "段首语已给", "续写150词", "与原文风格一致"], outputTemplate: `## 读后续写\n阅读下面短文，根据所给情节进行续写，使之构成一个完整的故事。\n[原文约350词]\nParagraph 1: When she opened the door, she couldn't believe her eyes.\nParagraph 2: Years later, she still remembered that special day.\n---\n**答案与解析**\n**考点：**读后续写 **范文：**...\n**解析：**1.呼应前文细节 2.情感发展合理 3.情节完整 4.语言风格一致`, validationRules: ["范文完整", "风格一致"], answerOpenness: 2, structureComplexity: 2, riskLevel: 2, };
+
 // ====== 注册所有规则 ======
-[字音字形, 成语运用, 名著阅读, 综合性学习, 现代文阅读, 文言文阅读, 古诗词鉴赏, 病句辨析, 修改病句_小学, 看拼音写词, 形近字组词, 近反义词, 仿写句子, 古诗默写, 口语交际, 阅读理解_小学, 选词填空_小学, 成语填空_小学, 句式转换_小学, 修辞判断_小学, 标点运用_小学, 名言警句_小学, 习作_小学, 古诗文默写_初中, 实用类阅读_初中, 语言文字运用_高中, 名句默写_高中, 论述类阅读, 文学类阅读_高中, 文言文阅读_高中, 古代诗歌鉴赏_高中, 实用类阅读, 成语辨析_高中, 语句补写_高中, 修辞分析_高中, 句式变换_高中, 标点符号_高中, 图文转换_高中, 词句含义_高中, 作文_初中, 写作_高中].forEach(registerRule);
+[字音字形, 成语运用, 名著阅读, 综合性学习, 现代文阅读, 文言文阅读, 古诗词鉴赏, 病句辨析, 修改病句_小学, 看拼音写词, 形近字组词, 近反义词, 仿写句子, 古诗默写, 口语交际, 阅读理解_小学, 选词填空_小学, 成语填空_小学, 句式转换_小学, 修辞判断_小学, 标点运用_小学, 名言警句_小学, 习作_小学, 古诗文默写_初中, 实用类阅读_初中, 语言文字运用_高中, 名句默写_高中, 论述类阅读, 文学类阅读_高中, 文言文阅读_高中, 古代诗歌鉴赏_高中, 实用类阅读, 成语辨析_高中, 语句补写_高中, 修辞分析_高中, 句式变换_高中, 标点符号_高中, 图文转换_高中, 词句含义_高中, 作文_初中, 写作_高中, 口算_小学, 竖式计算_小学, 脱式计算_小学, 填空题_小学数, 判断题_小学数, 找规律_小学数, 应用题_小学数, 图形题_小学数, 统计图表_小学数, 解决问题_小学数, 实数运算, 代数式_初中数, 方程与不等式_初中数, 函数_初中数, 三角形与全等, 四边形_初中数, 相似与三角, 圆_初中数, 图形变换_初中数, 统计与概率_初中数, 集合与逻辑_高中数, 函数与导数_高中数, 三角函数_高中数, 数列_高中数, 平面向量_高中数, 立体几何_高中数, 解析几何_高中数, 概率统计_高中数, 单词拼写_英语, 选词填空_英语小, 单项选择_英语小, 补全对话_英语小, 阅读理解_英语小, 书面表达_英语小, 语法选择_初中英, 完形填空_初中英, 词汇运用_初中英, 任务型阅读_初中英, 阅读理解_初中英, 书面表达_初中英, 阅读理解_高中英, 七选五_高中英, 完形填空_高中英, 语法填空_高中英, 应用文写作_高中英, 读后续写_高中英].forEach(registerRule);
 
 // ====== 导出 ======
 export { findRule, getRegisteredTypes, isRuleRegistered };

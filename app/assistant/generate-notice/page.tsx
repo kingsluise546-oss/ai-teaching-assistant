@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { ArrowLeft, Sparkles, Copy, Check, Heart, Wand2 } from "lucide-react";
 import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/storage";
+import { callAI } from "@/lib/ai";
+import { generateNoticePrompt, optimizePrompt } from "@/lib/prompts";
 
 const scenarios = [
   { id: "holiday", label: "放假通知", desc: "节假日放假安排通知" },
@@ -30,41 +32,18 @@ export default function GenerateNoticePage() {
   const handleGenerate = async () => {
     if (!input.trim()) return;
     setGenerating(true);
-
-    await new Promise((r) => setTimeout(r, 1500));
-
-    const scenario = scenarios.find((s) => s.id === selectedScenario);
-    const mockResult = `各位家长好：
-
-根据学校统一安排，现将近期有关事项通知如下：
-
-1. 时间安排：请各位家长注意查收具体时间安排。
-2. 注意事项：请提醒孩子按时完成相关准备。
-3. 温馨提示：如有特殊情况，请及时与老师联系。
-
-感谢各位家长的支持与配合！
-
-${selectedScenario === "holiday" ? "祝大家假期愉快！" : ""}
-张老师
-${new Date().toLocaleDateString("zh-CN")}`;
-
-    setResult(mockResult);
-    setShowOptimize(false);
-    setOptimizeInput("");
+    try {
+      const prompt = generateNoticePrompt({ scenario: selectedScenario, details: input });
+      const content = await callAI(prompt);
+      setResult(content);
+      setShowOptimize(false);
+      setOptimizeInput("");
+      const id = generateId();
+      const scenario = scenarios.find((s) => s.id === selectedScenario);
+      saveItem({ id, title: `通知·${scenario?.label || ""}`, type: "通知", typeColor: "bg-orange-50 text-orange-600", content, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorited: false });
+      setLastId(id);
+    } catch {}
     setGenerating(false);
-
-    const id = generateId();
-    saveItem({
-      id,
-      title: `通知·${scenario?.label || ""}`,
-      type: "通知",
-      typeColor: "bg-orange-50 text-orange-600",
-      content: mockResult,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      favorited: false,
-    });
-    setLastId(id);
   };
 
   const handleFavorite = () => {
@@ -83,13 +62,13 @@ ${new Date().toLocaleDateString("zh-CN")}`;
   const handleOptimize = async () => {
     if (!result || !optimizeInput.trim() || !lastId) return;
     setOptimizing(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    const newResult = result + `\n\n（已根据要求优化：${optimizeInput}）\n优化后的内容将在接入 AI API 后生成。`;
-    setResult(newResult);
-    const existing = getSavedItems().find((i) => i.id === lastId);
-    if (existing) {
-      saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
-    }
+    try {
+      const prompt = optimizePrompt(result, optimizeInput.trim());
+      const newResult = await callAI(prompt);
+      setResult(newResult);
+      const existing = getSavedItems().find((i) => i.id === lastId);
+      if (existing) saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
+    } catch {}
     setShowOptimize(false);
     setOptimizeInput("");
     setOptimizing(false);

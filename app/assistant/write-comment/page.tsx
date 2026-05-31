@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { ArrowLeft, Sparkles, Copy, Check, Heart, Wand2 } from "lucide-react";
 import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/storage";
+import { callAI } from "@/lib/ai";
+import { writeCommentPrompt, optimizePrompt } from "@/lib/prompts";
 
 const keywords = [
   "学习认真", "思维活跃", "书写工整", "发言积极",
@@ -35,39 +37,18 @@ export default function WriteCommentPage() {
   const handleGenerate = async () => {
     if (!input.trim() || selectedKeywords.length === 0) return;
     setGenerating(true);
-
-    await new Promise((r) => setTimeout(r, 2000));
-
-    const mockResult = tone === "kind"
-      ? `1. 你是一个学习认真的好孩子，课堂上总是积极发言，思维活跃。老师为你感到骄傲！希望你继续保持，争取更大进步。
-2. 这学期你的书写工整了许多，作业质量明显提高。团结同学、乐于助人的品质也让大家都很喜欢你。
-3. 你对学习有着浓厚的兴趣，善于思考问题。如果能更加细心一些，相信你会更出色！
-4. 你态度端正，基础扎实，每一步都走得很稳。老师希望你能在课堂上更大胆地表达自己的想法。
-5. 这学期你进步明显，从最初的羞涩到现在敢于在课堂上发言，老师看到了你的努力和成长！`
-      : `1. 该生学习态度端正，课堂表现积极，思维活跃。作业完成质量良好，书写工整。希望继续保持。
-2. 该生团结同学，乐于助人，在班级中起到了良好的榜样作用。学习上基础扎实，善于独立思考。
-3. 该生本学期进步显著，学习兴趣浓厚，能够主动思考问题。建议在细节方面加以注意，争取更大提升。
-4. 该生学习认真，态度端正，各科发展均衡。希望在课堂互动方面更加积极主动。
-5. 该生表现良好，能够按时完成各项学习任务。建议在课后拓展阅读方面多下功夫，提升综合素养。`;
-
-    setResult(mockResult);
-    setShowOptimize(false);
-    setOptimizeInput("");
+    try {
+      const prompt = writeCommentPrompt({ names: input, keywords: selectedKeywords, tone });
+      const content = await callAI(prompt);
+      setResult(content);
+      setShowOptimize(false);
+      setOptimizeInput("");
+      const id = generateId();
+      const names = input.trim().split("\n").filter(Boolean);
+      saveItem({ id, title: `评语·${names.length}人`, type: "评语", typeColor: "bg-green-50 text-green-600", content, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorited: false });
+      setLastId(id);
+    } catch (e: any) { setResult(null); }
     setGenerating(false);
-
-    const id = generateId();
-    const names = input.trim().split("\n").filter(Boolean);
-    saveItem({
-      id,
-      title: `评语·${names.length}人`,
-      type: "评语",
-      typeColor: "bg-green-50 text-green-600",
-      content: mockResult,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      favorited: false,
-    });
-    setLastId(id);
   };
 
   const handleFavorite = () => {
@@ -86,13 +67,13 @@ export default function WriteCommentPage() {
   const handleOptimize = async () => {
     if (!result || !optimizeInput.trim() || !lastId) return;
     setOptimizing(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    const newResult = result + `\n\n（已根据要求优化：${optimizeInput}）\n优化后的内容将在接入 AI API 后生成。`;
-    setResult(newResult);
-    const existing = getSavedItems().find((i) => i.id === lastId);
-    if (existing) {
-      saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
-    }
+    try {
+      const prompt = optimizePrompt(result, optimizeInput.trim());
+      const newResult = await callAI(prompt);
+      setResult(newResult);
+      const existing = getSavedItems().find((i) => i.id === lastId);
+      if (existing) saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
+    } catch {}
     setShowOptimize(false);
     setOptimizeInput("");
     setOptimizing(false);
