@@ -19,9 +19,18 @@ function stripTokens(text: string): string {
   return normalized.replace(/\[\[[^\]]+\]\]/g, "");
 }
 
-/** 清除残余 markdown 符号 */
+/** 清除残余 markdown（保留 ## 标题 和 **答案与解析**） */
 function stripMarkdown(text: string): string {
-  return text.replace(/\*{1,3}/g, "").replace(/#{1,6}\s?/g, "").replace(/`{1,3}/g, "");
+  return text
+    .replace(/^## /gm, "§H2§")
+    .replace(/\*\*答案与解析\*\*/g, "§A§")
+    .replace(/\*\*全文翻译\*\*/g, "§T§")
+    .replace(/\*{1,3}/g, "")
+    .replace(/#/g, "")
+    .replace(/`{1,3}/g, "")
+    .replace(/§H2§/g, "## ")
+    .replace(/§A§/g, "### 答案与解析")
+    .replace(/§T§/g, "**全文翻译**");
 }
 
 /** 渲染答案区：统一格式 */
@@ -137,7 +146,16 @@ export default function GenerateQuestionsPage() {
 
   const handleCopy = async () => {
     if (!result) return;
-    await navigator.clipboard.writeText(result);
+    // markdown → 干净纯文本
+    const clean = result
+      .replace(/\[\[[^\]]+\]\]/g, "")
+      .replace(/^### (.+)$/gm, "【$1】")
+      .replace(/^## (.+)$/gm, "【$1】")
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/\*(.+?)\*/g, "$1")
+      .replace(/^---$/gm, "————————————————")
+      .replace(/`{1,3}/g, "");
+    await navigator.clipboard.writeText(clean);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
