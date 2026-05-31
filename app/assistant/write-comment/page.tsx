@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { ArrowLeft, Sparkles, Copy, Check, Heart, Wand2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Copy, Check, Heart } from "lucide-react";
 import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/storage";
 import { callAI } from "@/lib/ai";
-import { writeCommentPrompt, optimizePrompt } from "@/lib/prompts";
+import { writeCommentPrompt } from "@/lib/prompts";
 
 const PROFILES = ["优秀型", "进步型", "潜力型", "内向型", "活跃型", "待提升型"];
 const GRADES = ["小学", "初中", "高中"];
@@ -15,19 +15,16 @@ const STYLES = ["鼓励型", "正式型", "温暖型", "班主任型"];
 
 export default function WriteCommentPage() {
   const router = useRouter();
-  const [input, setInput] = useState("");
   const [grade, setGrade] = useState("初中");
   const [profiles, setProfiles] = useState<string[]>(["进步型"]);
   const [length, setLength] = useState("标准版（100字）");
   const [style, setStyle] = useState("鼓励型");
+  const [count, setCount] = useState(5);
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [lastId, setLastId] = useState<string | null>(null);
   const [favorited, setFavorited] = useState(false);
-  const [showOptimize, setShowOptimize] = useState(false);
-  const [optimizeInput, setOptimizeInput] = useState("");
-  const [optimizing, setOptimizing] = useState(false);
   const [previousComments, setPreviousComments] = useState<string[]>([]);
 
   const toggleProfile = (p: string) => {
@@ -35,18 +32,19 @@ export default function WriteCommentPage() {
   };
 
   const handleGenerate = async () => {
-    if (!input.trim()) return;
     setGenerating(true);
     try {
-      const prompt = writeCommentPrompt({ names: input, grade, profiles, length, style, previous: previousComments });
+      // 生成化名：小A、小B... 小Z, 小A1, 小B1...
+      const names = Array.from({ length: count }, (_, i) => {
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        return `小${letters[i % 26]}${i >= 26 ? Math.floor(i / 26) : ""}`;
+      }).join("\n");
+      const prompt = writeCommentPrompt({ names, grade, profiles, length, style, previous: previousComments });
       const content = await callAI(prompt);
       setResult(content);
       setPreviousComments((prev) => [...prev, content]);
-      setShowOptimize(false);
-      setOptimizeInput("");
       const id = generateId();
-      const names = input.trim().split("\n").filter(Boolean);
-      saveItem({ id, title: `评语·${names.length}人`, type: "评语", typeColor: "bg-green-50 text-green-600", content, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorited: false });
+      saveItem({ id, title: `评语·${count}人·${grade}`, type: "评语", typeColor: "bg-green-50 text-green-600", content, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorited: false });
       setLastId(id);
     } catch (e: any) { setResult(null); }
     setGenerating(false);
@@ -65,21 +63,6 @@ export default function WriteCommentPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleOptimize = async () => {
-    if (!result || !optimizeInput.trim() || !lastId) return;
-    setOptimizing(true);
-    try {
-      const prompt = optimizePrompt(result, optimizeInput.trim());
-      const newResult = await callAI(prompt);
-      setResult(newResult);
-      const existing = getSavedItems().find((i) => i.id === lastId);
-      if (existing) saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
-    } catch {}
-    setShowOptimize(false);
-    setOptimizeInput("");
-    setOptimizing(false);
-  };
-
   return (
     <div className="max-w-3xl mx-auto px-8 py-8">
       <button
@@ -93,28 +76,16 @@ export default function WriteCommentPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-gray-900">评语助手</h1>
         <p className="text-gray-400 text-sm mt-1">
-          导入学生名单并选择关键词，AI 生成个性化的期末评语
+          自动生成化名（小A、小B…），无需导入真实名单
         </p>
       </div>
 
-      <div className="card p-5 mb-6 space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            学生名单
-          </label>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={generating}
-            placeholder="输入学生姓名，每行一个&#10;&#10;例如：&#10;张三&#10;李四&#10;王五"
-            className="w-full min-h-[100px] resize-none text-sm text-gray-800 placeholder-gray-300 outline-none leading-relaxed"
-            style={{ border: "none", background: "transparent" }}
-          />
-        </div>
-
-        <div className="border-t border-gray-100" />
-
+      <div className="card p-5 mb-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">评语数量</label>
+            <input type="number" value={count} onChange={(e) => setCount(Math.min(50, Math.max(1, Number(e.target.value) || 1)))} min={1} max={50} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2" />
+          </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-2">年级</label>
             <select value={grade} onChange={(e) => setGrade(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
@@ -149,14 +120,14 @@ export default function WriteCommentPage() {
 
         <div className="pt-2 flex items-center justify-between border-t border-gray-100">
           <span className="text-xs text-gray-300">
-            {input.split("\n").filter(Boolean).length} 名学生 · {profiles.length} 个画像
+            {count} 人（小A ~ 小{String.fromCharCode(64 + Math.min(count, 26))}{count > 26 ? Math.floor(count / 26) : ""}）· {profiles.length} 个画像
             {previousComments.length > 0 ? ` · 已生成${previousComments.length}批` : ""}
           </span>
           <button
             onClick={handleGenerate}
-            disabled={generating || !input.trim()}
+            disabled={generating}
             className={`btn-primary flex items-center gap-2 text-sm ${
-              generating || !input.trim()
+              generating
                 ? "opacity-50 cursor-not-allowed"
                 : ""
             }`}
@@ -186,13 +157,6 @@ export default function WriteCommentPage() {
             <h2 className="text-sm font-semibold text-gray-900">生成结果</h2>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowOptimize(!showOptimize)}
-                className={`btn-ghost flex items-center gap-1.5 text-xs ${showOptimize ? "text-indigo-500" : ""}`}
-              >
-                <Wand2 className="w-3.5 h-3.5" />
-                继续优化
-              </button>
-              <button
                 onClick={handleFavorite}
                 className={`btn-ghost flex items-center gap-1.5 text-xs ${favorited ? "text-red-400" : ""}`}
               >
@@ -217,35 +181,6 @@ export default function WriteCommentPage() {
               </button>
             </div>
           </div>
-          {showOptimize && (
-            <div className="mb-4 p-4 bg-indigo-50 rounded-lg">
-              <label className="block text-xs font-medium text-indigo-700 mb-2">
-                输入优化要求
-              </label>
-              <textarea
-                value={optimizeInput}
-                onChange={(e) => setOptimizeInput(e.target.value)}
-                placeholder="例如：语气更亲切一些，多关注学生的品德发展"
-                className="w-full min-h-[80px] resize-none text-sm text-gray-800 placeholder-gray-400 outline-none bg-white rounded-lg p-3 border border-indigo-200 focus:border-indigo-400"
-              />
-              <div className="flex items-center justify-end gap-2 mt-2">
-                <button
-                  onClick={() => { setShowOptimize(false); setOptimizeInput(""); }}
-                  className="btn-ghost text-xs"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleOptimize}
-                  disabled={optimizing || !optimizeInput.trim()}
-                  className={`btn-primary text-xs flex items-center gap-1.5 py-1.5 px-4 ${optimizing || !optimizeInput.trim() ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  <Wand2 className="w-3 h-3" />
-                  {optimizing ? "优化中..." : "提交优化"}
-                </button>
-              </div>
-            </div>
-          )}
           <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
             {result}
           </div>
