@@ -409,49 +409,93 @@ export function generateQuestionsPrompt(params: {
   };
 }
 
-export function writeCommentPrompt(params: { names: string; keywords: string[]; tone: string }) {
-  const toneGuide = params.tone === "kind"
-    ? "亲切鼓励型：以第二人称「你」开头，语气温暖，关注学生的优点和进步，先肯定再建议。如：「你是一个……的孩子，老师特别欣赏你的……如果能在……方面再努力一点，就更棒了！」"
-    : "正式严谨型：以「该生」开头，客观评价，言辞规范，适用于正式档案。如：「该生学习态度端正，……建议在……方面进一步加强。」";
+export function writeCommentPrompt(params: {
+  names: string;
+  grade: string;
+  profiles: string[];
+  length: string;
+  style: string;
+  previous?: string[];
+}) {
+  const gradeGuide: Record<string, string> = {
+    小学: "语气亲切稚趣，用比喻和小故事鼓励，称呼用「你」开头",
+    初中: "语气真诚有深度，肯定具体行为而非笼统表扬，可适当点出成长方向",
+    高中: "语气理性有格局，关注内驱力和人生规划，评价有深度不幼稚",
+  };
+
+  const profileGuide: Record<string, string> = {
+    优秀型: "各方面表现突出，评语突出榜样作用和持续进步空间",
+    进步型: "相比过去有明显进步，评语强调努力和变化过程",
+    潜力型: "有能力但未充分发挥，评语激发自信心和内驱力",
+    内向型: "安静内敛但有想法，评语肯定细腻和深度思考",
+    活跃型: "积极外向热情，评语肯定能量同时引导专注",
+    待提升型: "存在不足需改进，评语先肯定优点再温和指出方向",
+  };
+
+  const styleGuide: Record<string, string> = {
+    鼓励型: "温暖鼓励为主，激发信心，用「老师相信你」「期待你」等话语",
+    正式型: "客观专业，用于档案记录，用「该生」「表现」等规范用语",
+    温暖型: "真诚细腻，像朋友聊天，关注情感和成长感受",
+    班主任型: "既有严格要求又有真诚关怀，先肯定再建议再信任",
+  };
+
+  const repeatRule = params.previous?.length
+    ? `【避免重复】以下评语已经生成过，新评语必须与这些有明确区分度（用词、句式、评价角度都不同）：\n${params.previous.join("\n")}`
+    : "";
 
   return {
-    system: `你是一位经验丰富的班主任，正在撰写学生期末评语。
+    system: `你是一位经验丰富的${params.grade}班主任，正在撰写学生学期评语。
 
-要求：
-1. 根据学生名单和特点关键词，为每位学生生成一条个性化评语
-2. 每人一条，编号列出
-3. 每条评语不少于40字，不多于80字
-4. 每条评语应包含：一个优点肯定 + 一个具体表现 + 一个成长建议
-5. 避免使用空洞套话（如"表现良好""继续努力"）
-6. 评语之间要有区分度，避免千篇一律
+【基本要求】
+1. 每人一条，编号列出，评语之间空一行
+2. 评语长度：${params.length}
+3. 风格：${styleGuide[params.style] || params.style}
+4. 年级语气：${gradeGuide[params.grade] || ""}
+5. 内容结构：优点肯定 + 具体表现 + 成长建议
 
-风格要求：${toneGuide}`,
-    messages: [{ role: "user" as const, content: `学生名单：${params.names}\n特点关键词：${params.keywords.join("、")}` }],
+【学生画像要求】
+${params.profiles.map((p) => `- ${p}：${profileGuide[p] || ""}`).join("\n")}
+
+${repeatRule}`,
+    messages: [{ role: "user" as const, content: `请为以下学生生成评语：\n${params.names}` }],
   };
 }
 
-export function generateNoticePrompt(params: { scenario: string; details: string }) {
-  const scenarioGuide: Record<string, string> = {
-    holiday: "放假通知：包含放假时间安排、返校时间、假期安全注意事项、假期学习建议",
-    meeting: "家长会通知：包含会议时间、地点、会议议程、参会要求、停车指引",
-    activity: "活动通知：包含活动名称、时间地点、活动内容、参与方式、注意事项",
-    homework: "作业提醒：包含作业内容、提交时间、格式要求、家长配合事项",
-    custom: "自定义通知",
+export function generateNoticePrompt(params: {
+  subject: string;
+  audience: string;
+  points: string;
+  type?: string;
+  grade?: string;
+  action?: "generate" | "condense" | "colloquial";
+  wordLimit?: number;
+}) {
+  const actionGuide: Record<string, string> = {
+    generate: "从零生成一份完整通知",
+    condense: `将以下内容压缩到${params.wordLimit || 80}字以内，保留所有关键信息，去除冗余表达`,
+    colloquial: "将以下内容改写为口语化版本，适合微信群或短信发送，使用亲切自然的语气",
+  };
+
+  const audienceGuide: Record<string, string> = {
+    家长: "语气亲切温暖，称呼用「各位家长」「家长朋友们」，内容体现家校合作的温度",
+    学生: "语气正式规范，称呼用「各位同学」，内容清晰明了，有教师的权威感",
+    教师: "语气专业简洁，称呼用「各位老师」，内容直接高效",
   };
 
   return {
-    system: `你是一位班主任老师，需要撰写一份给家长的通知。
+    system: `你是一位${params.grade || ""}班主任老师，正在准备一份通知。
 
-要求：
-1. 语气亲切得体，既有教师的专业感，又有与家长沟通的温度
-2. 结构完整：称呼 → 问候 → 正文（时间、地点、事项分条列出） → 温馨提示 → 落款（老师姓名 + 日期）
-3. 关键信息（时间、地点等）要突出、清晰
-4. 正文使用分点陈述（1. 2. 3.），便于家长快速阅读
-5. 字数控制在200-400字
-6. 直接输出可复制的完整通知文本，无需额外说明
+【核心要求】
+1. 任务：${actionGuide[params.action || "generate"]}
+2. 对象：${params.audience}（${audienceGuide[params.audience] || ""}）
+3. 长度：${params.wordLimit ? `控制在${params.wordLimit}字以内` : "简洁完整"}
+4. 格式：直接输出通知正文，无需额外说明。结构：称呼 → 正文（分条列出）→ 温馨提示 → 落款
 
-场景说明：${scenarioGuide[params.scenario] || scenarioGuide.custom}`,
-    messages: [{ role: "user" as const, content: `场景：${params.scenario}\n关键信息：${params.details}\n请生成通知。` }],
+【输出规则】
+- 可直接复制到微信群或 Word，不使用 markdown 格式
+- 分条使用 1. 2. 3. 自然编号
+- 关键信息（时间、地点）清晰突出`,
+    messages: [{ role: "user" as const, content: `主题：${params.subject}\n内容要点：${params.points}${params.type ? `\n类型：${params.type}` : ""}\n请${actionGuide[params.action || "generate"]}。` }],
   };
 }
 

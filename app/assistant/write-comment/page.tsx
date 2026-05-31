@@ -8,17 +8,18 @@ import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/stora
 import { callAI } from "@/lib/ai";
 import { writeCommentPrompt, optimizePrompt } from "@/lib/prompts";
 
-const keywords = [
-  "学习认真", "思维活跃", "书写工整", "发言积极",
-  "团结同学", "进步明显", "基础扎实", "善于思考",
-  "态度端正", "兴趣浓厚",
-];
+const PROFILES = ["优秀型", "进步型", "潜力型", "内向型", "活跃型", "待提升型"];
+const GRADES = ["小学", "初中", "高中"];
+const LENGTHS = ["简短版（50字）", "标准版（100字）", "详细版（150字）"];
+const STYLES = ["鼓励型", "正式型", "温暖型", "班主任型"];
 
 export default function WriteCommentPage() {
   const router = useRouter();
   const [input, setInput] = useState("");
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
-  const [tone, setTone] = useState<"kind" | "formal">("kind");
+  const [grade, setGrade] = useState("初中");
+  const [profiles, setProfiles] = useState<string[]>(["进步型"]);
+  const [length, setLength] = useState("标准版（100字）");
+  const [style, setStyle] = useState("鼓励型");
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -27,20 +28,20 @@ export default function WriteCommentPage() {
   const [showOptimize, setShowOptimize] = useState(false);
   const [optimizeInput, setOptimizeInput] = useState("");
   const [optimizing, setOptimizing] = useState(false);
+  const [previousComments, setPreviousComments] = useState<string[]>([]);
 
-  const toggleKeyword = (kw: string) => {
-    setSelectedKeywords((prev) =>
-      prev.includes(kw) ? prev.filter((k) => k !== kw) : [...prev, kw]
-    );
+  const toggleProfile = (p: string) => {
+    setProfiles((prev) => prev.includes(p) ? prev.filter((k) => k !== p) : [...prev, p]);
   };
 
   const handleGenerate = async () => {
-    if (!input.trim() || selectedKeywords.length === 0) return;
+    if (!input.trim()) return;
     setGenerating(true);
     try {
-      const prompt = writeCommentPrompt({ names: input, keywords: selectedKeywords, tone });
+      const prompt = writeCommentPrompt({ names: input, grade, profiles, length, style, previous: previousComments });
       const content = await callAI(prompt);
       setResult(content);
+      setPreviousComments((prev) => [...prev, content]);
       setShowOptimize(false);
       setOptimizeInput("");
       const id = generateId();
@@ -113,69 +114,49 @@ export default function WriteCommentPage() {
 
         <div className="border-t border-gray-100" />
 
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-2">年级</label>
+            <select value={grade} onChange={(e) => setGrade(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {GRADES.map(g => <option key={g}>{g}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-2">评语长度</label>
+            <select value={length} onChange={(e) => setLength(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {LENGTHS.map(l => <option key={l}>{l}</option>)}
+            </select>
+          </div>
+        </div>
+
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            选择特点（每人可勾选 1-3 个）
-          </label>
+          <label className="block text-xs font-medium text-gray-500 mb-2">学生画像</label>
           <div className="flex flex-wrap gap-2">
-            {keywords.map((kw) => (
-              <button
-                key={kw}
-                onClick={() => toggleKeyword(kw)}
-                disabled={generating}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  selectedKeywords.includes(kw)
-                    ? "bg-indigo-50 border-indigo-200 text-indigo-600"
-                    : "border-gray-200 text-gray-500 hover:border-gray-300"
-                }`}
-              >
-                {kw}
-              </button>
+            {PROFILES.map(p => (
+              <button key={p} onClick={() => toggleProfile(p)} className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${profiles.includes(p) ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "border-gray-200 text-gray-500"}`}>{p}</button>
             ))}
           </div>
         </div>
 
-        <div className="border-t border-gray-100" />
-
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            评语风格
-          </label>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setTone("kind")}
-              disabled={generating}
-              className={`text-xs px-4 py-2 rounded-lg border transition-colors ${
-                tone === "kind"
-                  ? "bg-indigo-50 border-indigo-200 text-indigo-600"
-                  : "border-gray-200 text-gray-500 hover:border-gray-300"
-              }`}
-            >
-              亲切鼓励型
-            </button>
-            <button
-              onClick={() => setTone("formal")}
-              disabled={generating}
-              className={`text-xs px-4 py-2 rounded-lg border transition-colors ${
-                tone === "formal"
-                  ? "bg-indigo-50 border-indigo-200 text-indigo-600"
-                  : "border-gray-200 text-gray-500 hover:border-gray-300"
-              }`}
-            >
-              正式严谨型
-            </button>
+          <label className="block text-xs font-medium text-gray-500 mb-2">评语风格</label>
+          <div className="flex flex-wrap gap-2">
+            {STYLES.map(s => (
+              <button key={s} onClick={() => setStyle(s)} className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${style === s ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "border-gray-200 text-gray-500"}`}>{s}</button>
+            ))}
           </div>
         </div>
 
         <div className="pt-2 flex items-center justify-between border-t border-gray-100">
           <span className="text-xs text-gray-300">
-            {input.split("\n").filter(Boolean).length} 名学生 · {selectedKeywords.length} 个特点
+            {input.split("\n").filter(Boolean).length} 名学生 · {profiles.length} 个画像
+            {previousComments.length > 0 ? ` · 已生成${previousComments.length}批` : ""}
           </span>
           <button
             onClick={handleGenerate}
-            disabled={generating || !input.trim() || selectedKeywords.length === 0}
+            disabled={generating || !input.trim()}
             className={`btn-primary flex items-center gap-2 text-sm ${
-              generating || !input.trim() || selectedKeywords.length === 0
+              generating || !input.trim()
                 ? "opacity-50 cursor-not-allowed"
                 : ""
             }`}

@@ -2,77 +2,47 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import { ArrowLeft, Sparkles, Copy, Check, Heart, Wand2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Copy, Check, Heart, Shrink, MessageCircle } from "lucide-react";
+
 import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/storage";
 import { callAI } from "@/lib/ai";
-import { generateNoticePrompt, optimizePrompt } from "@/lib/prompts";
+import { generateNoticePrompt } from "@/lib/prompts";
 
-const scenarios = [
-  { id: "holiday", label: "放假通知", desc: "节假日放假安排通知" },
-  { id: "meeting", label: "家长会通知", desc: "召开家长会的通知" },
-  { id: "activity", label: "活动通知", desc: "学校活动或比赛通知" },
-  { id: "homework", label: "作业提醒", desc: "布置或催交作业" },
-  { id: "custom", label: "自定义", desc: "自由输入场景" },
-];
+const TYPES = ["家长会", "考试安排", "活动通知", "放假通知", "作业提醒", "自定义"];
+const AUDIENCES = ["家长", "学生", "教师"];
 
 export default function GenerateNoticePage() {
   const router = useRouter();
-  const [selectedScenario, setSelectedScenario] = useState<string>("");
-  const [input, setInput] = useState("");
+  const [subject, setSubject] = useState("");
+  const [audience, setAudience] = useState("家长");
+  const [points, setPoints] = useState("");
+  const [ntype, setNtype] = useState("自定义");
+  const [wordLimit, setWordLimit] = useState(80);
+  const [action, setAction] = useState<"generate" | "condense" | "colloquial">("generate");
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [lastId, setLastId] = useState<string | null>(null);
   const [favorited, setFavorited] = useState(false);
-  const [showOptimize, setShowOptimize] = useState(false);
-  const [optimizeInput, setOptimizeInput] = useState("");
-  const [optimizing, setOptimizing] = useState(false);
 
-  const handleGenerate = async () => {
-    if (!input.trim()) return;
+  const handleAction = async (act: "generate" | "condense" | "colloquial") => {
+    if (!subject.trim() || !points.trim()) return;
+    setAction(act);
     setGenerating(true);
     try {
-      const prompt = generateNoticePrompt({ scenario: selectedScenario, details: input });
+      const prompt = generateNoticePrompt({ subject, audience, points, type: ntype, action: act, wordLimit: act === "condense" ? wordLimit : undefined });
       const content = await callAI(prompt);
       setResult(content);
-      setShowOptimize(false);
-      setOptimizeInput("");
       const id = generateId();
-      const scenario = scenarios.find((s) => s.id === selectedScenario);
-      saveItem({ id, title: `通知·${scenario?.label || ""}`, type: "通知", typeColor: "bg-orange-50 text-orange-600", content, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorited: false });
+      saveItem({ id, title: `通知·${subject.slice(0, 20)}`, type: "通知", typeColor: "bg-orange-50 text-orange-600", content, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorited: false });
       setLastId(id);
     } catch {}
     setGenerating(false);
   };
 
-  const handleFavorite = () => {
-    if (!lastId) return;
-    toggleFavorite(lastId);
-    setFavorited(!favorited);
-  };
+  const handleFavorite = () => { if (!lastId) return; toggleFavorite(lastId); setFavorited(!favorited); };
 
-  const handleCopy = async () => {
-    if (!result) return;
-    await navigator.clipboard.writeText(result);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleOptimize = async () => {
-    if (!result || !optimizeInput.trim() || !lastId) return;
-    setOptimizing(true);
-    try {
-      const prompt = optimizePrompt(result, optimizeInput.trim());
-      const newResult = await callAI(prompt);
-      setResult(newResult);
-      const existing = getSavedItems().find((i) => i.id === lastId);
-      if (existing) saveItem({ ...existing, content: newResult, updatedAt: new Date().toISOString() });
-    } catch {}
-    setShowOptimize(false);
-    setOptimizeInput("");
-    setOptimizing(false);
-  };
+  const handleCopy = async () => { if (!result) return; await navigator.clipboard.writeText(result); setCopied(true); setTimeout(() => setCopied(false), 2000); };
 
   return (
     <div className="max-w-3xl mx-auto px-8 py-8">
@@ -85,73 +55,44 @@ export default function GenerateNoticePage() {
       </button>
 
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-gray-900">通知模板生成</h1>
-        <p className="text-gray-400 text-sm mt-1">
-          选择场景并填写关键信息，AI 生成得体的通知文字，可直接复制发送
-        </p>
+        <h1 className="text-xl font-semibold text-gray-900">通知助手</h1>
+        <p className="text-gray-400 text-sm mt-1">填写信息，一键生成可复制发送的通知</p>
       </div>
 
-      <div className="card p-5 mb-6 space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            通知场景
-          </label>
-          <div className="grid grid-cols-3 gap-3">
-            {scenarios.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedScenario(s.id)}
-                disabled={generating}
-                className={`text-left p-3 rounded-xl border transition-colors ${
-                  selectedScenario === s.id
-                    ? "bg-indigo-50 border-indigo-200"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <p className={`text-xs font-medium ${
-                  selectedScenario === s.id ? "text-indigo-600" : "text-gray-700"
-                }`}>
-                  {s.label}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">{s.desc}</p>
-              </button>
-            ))}
+      <div className="card p-5 mb-6 space-y-4">
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="通知主题（如：国庆放假安排）" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">通知对象</label>
+            <select value={audience} onChange={(e) => setAudience(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {AUDIENCES.map(a => <option key={a}>{a}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">通知类型</label>
+            <select value={ntype} onChange={(e) => setNtype(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {TYPES.map(t => <option key={t}>{t}</option>)}
+            </select>
           </div>
         </div>
 
-        <div className="border-t border-gray-100" />
+        <textarea value={points} onChange={(e) => setPoints(e.target.value)} placeholder="内容要点（时间、地点、事项、要求等）" className="w-full min-h-[80px] resize-none text-sm border border-gray-200 rounded-lg p-3 outline-none focus:border-indigo-400" />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            通知关键信息
-          </label>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={generating}
-            placeholder="填写关键信息，如时间、地点、事项等&#10;&#10;例如：&#10;国庆节放假安排&#10;放假时间：10月1日-10月7日&#10;返校时间：10月8日"
-            className="w-full min-h-[100px] resize-none text-sm text-gray-800 placeholder-gray-300 outline-none leading-relaxed"
-            style={{ border: "none", background: "transparent" }}
-          />
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500">字数限制：{wordLimit}字</span>
+          <input type="range" min={20} max={150} value={wordLimit} onChange={(e) => setWordLimit(Number(e.target.value))} className="flex-1" />
         </div>
 
-        <div className="pt-2 flex items-center justify-between border-t border-gray-100">
-          <span className="text-xs text-gray-300">
-            {selectedScenario
-              ? `已选场景：${scenarios.find((s) => s.id === selectedScenario)?.label}`
-              : "请选择场景"}
-          </span>
-          <button
-            onClick={handleGenerate}
-            disabled={generating || !input.trim() || !selectedScenario}
-            className={`btn-primary flex items-center gap-2 text-sm ${
-              generating || !input.trim() || !selectedScenario
-                ? "opacity-50 cursor-not-allowed"
-                : ""
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            {generating ? "生成中..." : "开始生成"}
+        <div className="flex gap-2 pt-2 border-t border-gray-100">
+          <button onClick={() => handleAction("generate")} disabled={generating || !subject.trim()} className="btn-primary flex items-center gap-1.5 text-sm px-4 py-2">
+            <Sparkles className="w-4 h-4" />{generating && action === "generate" ? "生成中..." : "生成通知"}
+          </button>
+          <button onClick={() => handleAction("condense")} disabled={generating || !subject.trim()} className="btn-ghost flex items-center gap-1.5 text-sm border border-gray-200 rounded-lg px-3 py-2">
+            <Shrink className="w-4 h-4" />{generating && action === "condense" ? "压缩中..." : "压缩"}
+          </button>
+          <button onClick={() => handleAction("colloquial")} disabled={generating || !subject.trim()} className="btn-ghost flex items-center gap-1.5 text-sm border border-gray-200 rounded-lg px-3 py-2">
+            <MessageCircle className="w-4 h-4" />{generating && action === "colloquial" ? "转换中..." : "口语化"}
           </button>
         </div>
       </div>
@@ -174,13 +115,6 @@ export default function GenerateNoticePage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-900">生成结果</h2>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowOptimize(!showOptimize)}
-                className={`btn-ghost flex items-center gap-1.5 text-xs ${showOptimize ? "text-indigo-500" : ""}`}
-              >
-                <Wand2 className="w-3.5 h-3.5" />
-                继续优化
-              </button>
               <button
                 onClick={handleFavorite}
                 className={`btn-ghost flex items-center gap-1.5 text-xs ${favorited ? "text-red-400" : ""}`}
@@ -206,37 +140,8 @@ export default function GenerateNoticePage() {
               </button>
             </div>
           </div>
-          {showOptimize && (
-            <div className="mb-4 p-4 bg-indigo-50 rounded-lg">
-              <label className="block text-xs font-medium text-indigo-700 mb-2">
-                输入优化要求
-              </label>
-              <textarea
-                value={optimizeInput}
-                onChange={(e) => setOptimizeInput(e.target.value)}
-                placeholder="例如：语气更正式一些，增加安全注意事项的详细描述"
-                className="w-full min-h-[80px] resize-none text-sm text-gray-800 placeholder-gray-400 outline-none bg-white rounded-lg p-3 border border-indigo-200 focus:border-indigo-400"
-              />
-              <div className="flex items-center justify-end gap-2 mt-2">
-                <button
-                  onClick={() => { setShowOptimize(false); setOptimizeInput(""); }}
-                  className="btn-ghost text-xs"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleOptimize}
-                  disabled={optimizing || !optimizeInput.trim()}
-                  className={`btn-primary text-xs flex items-center gap-1.5 py-1.5 px-4 ${optimizing || !optimizeInput.trim() ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  <Wand2 className="w-3 h-3" />
-                  {optimizing ? "优化中..." : "提交优化"}
-                </button>
-              </div>
-            </div>
-          )}
           <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-            {result}
+            <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}>{result}</pre>
           </div>
         </div>
       )}
