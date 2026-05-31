@@ -47,7 +47,7 @@ export function getModuleGroups(stage: Stage, subject: Subject): ModuleGroup[] |
     小学: {
       英语: [
         { label: "基础知识与运用", types: ["单词拼写", "选词填空", "单项选择", "补全对话"] },
-        { label: "阅读理解", types: ["阅读理解"] },
+        { label: "阅读理解", types: ["阅读理解(A篇)", "阅读理解(B篇)"] },
         { label: "书面表达", types: ["书面表达"] },
       ],
       数学: [
@@ -65,7 +65,7 @@ export function getModuleGroups(stage: Stage, subject: Subject): ModuleGroup[] |
     初中: {
       英语: [
         { label: "语言知识运用", types: ["语法选择", "完形填空", "词汇运用"] },
-        { label: "阅读理解", types: ["阅读理解", "任务型阅读"] },
+        { label: "阅读理解", types: ["阅读理解(A篇)", "阅读理解(B篇)", "阅读理解(C篇)", "任务型阅读"] },
         { label: "书面表达", types: ["书面表达"] },
       ],
       数学: [
@@ -83,7 +83,7 @@ export function getModuleGroups(stage: Stage, subject: Subject): ModuleGroup[] |
     },
     高中: {
       英语: [
-        { label: "阅读理解", types: ["阅读理解", "七选五"] },
+        { label: "阅读理解", types: ["阅读理解(A篇)", "阅读理解(B篇)", "阅读理解(C篇)", "阅读理解(D篇)", "七选五"] },
         { label: "语言知识运用", types: ["完形填空", "语法填空"] },
         { label: "写作", types: ["应用文写作", "读后续写"] },
       ],
@@ -188,7 +188,8 @@ export const ROUTING_TREE: RoutingTree[] = [
         { name: "单项选择" },
         { name: "补全对话" },
         // ── 阅读理解（20-25分）──
-        { name: "阅读理解", subTypes: ["判断对错", "选择填空", "图文匹配"] },
+        { name: "阅读理解(A篇)", subTypes: ["图文匹配", "判断对错"] },
+        { name: "阅读理解(B篇)", subTypes: ["选择填空", "简单简答"] },
         // ── 书面表达（10-15分）──
         { name: "书面表达", subTypes: ["仿写句子", "命题作文"] },
       ],
@@ -244,7 +245,9 @@ export const ROUTING_TREE: RoutingTree[] = [
         { name: "完形填空" },
         { name: "词汇运用", subTypes: ["首字母填空", "适当形式填空", "选词填空"] },
         // ── 阅读理解（30-40分）──
-        { name: "阅读理解", subTypes: ["细节理解", "推理判断", "主旨大意", "词义猜测"] },
+        { name: "阅读理解(A篇)", subTypes: ["应用文", "细节理解"] },
+        { name: "阅读理解(B篇)", subTypes: ["说明文", "推理判断", "主旨大意"] },
+        { name: "阅读理解(C篇)", subTypes: ["配对阅读", "细节匹配"] },
         { name: "任务型阅读", subTypes: ["信息匹配", "完成表格", "回答问题"] },
         // ── 书面表达（15分）──
         { name: "书面表达", subTypes: ["应用文", "话题作文"] },
@@ -298,7 +301,10 @@ export const ROUTING_TREE: RoutingTree[] = [
       ],
       英语: [
         // ── 阅读理解（50分）──
-        { name: "阅读理解", subTypes: ["细节理解", "推理判断", "主旨大意", "词义猜测"] },
+        { name: "阅读理解(A篇)", subTypes: ["应用文", "信息查找"] },
+        { name: "阅读理解(B篇)", subTypes: ["记叙文", "情感变化"] },
+        { name: "阅读理解(C篇)", subTypes: ["说明文", "信息整合"] },
+        { name: "阅读理解(D篇)", subTypes: ["议论文", "深度理解", "观点批判"] },
         { name: "七选五" },
         // ── 语言知识运用（30分）──
         { name: "完形填空" },

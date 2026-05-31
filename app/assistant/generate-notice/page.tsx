@@ -8,15 +8,12 @@ import { saveItem, toggleFavorite, generateId, getSavedItems } from "@/lib/stora
 import { callAI } from "@/lib/ai";
 import { generateNoticePrompt } from "@/lib/prompts";
 
-const TYPES = ["家长会", "考试安排", "活动通知", "放假通知", "作业提醒", "自定义"];
 const AUDIENCES = ["家长", "学生", "教师"];
 
 export default function GenerateNoticePage() {
   const router = useRouter();
-  const [subject, setSubject] = useState("");
   const [audience, setAudience] = useState("家长");
   const [points, setPoints] = useState("");
-  const [ntype, setNtype] = useState("自定义");
   const [wordLimit, setWordLimit] = useState(80);
   const [action, setAction] = useState<"generate" | "condense" | "colloquial">("generate");
   const [generating, setGenerating] = useState(false);
@@ -24,25 +21,27 @@ export default function GenerateNoticePage() {
   const [copied, setCopied] = useState(false);
   const [lastId, setLastId] = useState<string | null>(null);
   const [favorited, setFavorited] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAction = async (act: "generate" | "condense" | "colloquial") => {
-    if (!subject.trim() || !points.trim()) return;
+    if (!points.trim()) return;
     setAction(act);
     setGenerating(true);
+    setError(null);
     try {
-      const prompt = generateNoticePrompt({ subject, audience, points, type: ntype, action: act, wordLimit: act === "condense" ? wordLimit : undefined });
+      const prompt = generateNoticePrompt({ subject: points.slice(0, 30), audience, points, action: act, wordLimit: act === "condense" ? wordLimit : undefined });
       const content = await callAI(prompt);
       setResult(content);
       const id = generateId();
-      saveItem({ id, title: `通知·${subject.slice(0, 20)}`, type: "通知", typeColor: "bg-orange-50 text-orange-600", content, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorited: false });
+      saveItem({ id, title: `通知·${points.slice(0, 20)}`, type: "通知", typeColor: "bg-orange-50 text-orange-600", content, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorited: false });
       setLastId(id);
-    } catch {}
+    } catch (e: any) { setError(e?.message || "生成失败，请重试"); }
     setGenerating(false);
   };
 
   const handleFavorite = () => { if (!lastId) return; toggleFavorite(lastId); setFavorited(!favorited); };
 
-  const handleCopy = async () => { if (!result) return; await navigator.clipboard.writeText(result); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const handleCopy = async () => { if (!result) return; await navigator.clipboard.writeText(result.replace(/\*+/g, "").replace(/^#{1,6}\s?/gm, "").replace(/`/g, "")); setCopied(true); setTimeout(() => setCopied(false), 2000); };
 
   return (
     <div className="max-w-3xl mx-auto px-8 py-8">
@@ -60,24 +59,14 @@ export default function GenerateNoticePage() {
       </div>
 
       <div className="card p-5 mb-6 space-y-4">
-        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="通知主题（如：国庆放假安排）" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
+        <textarea value={points} onChange={(e) => setPoints(e.target.value)} placeholder="通知内容，包括时间、地点、事项、要求等" className="w-full min-h-[100px] resize-none text-sm border border-gray-200 rounded-lg p-3 outline-none focus:border-indigo-400" />
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">通知对象</label>
-            <select value={audience} onChange={(e) => setAudience(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-              {AUDIENCES.map(a => <option key={a}>{a}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">通知类型</label>
-            <select value={ntype} onChange={(e) => setNtype(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-              {TYPES.map(t => <option key={t}>{t}</option>)}
-            </select>
-          </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">通知对象</label>
+          <select value={audience} onChange={(e) => setAudience(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+            {AUDIENCES.map(a => <option key={a}>{a}</option>)}
+          </select>
         </div>
-
-        <textarea value={points} onChange={(e) => setPoints(e.target.value)} placeholder="内容要点（时间、地点、事项、要求等）" className="w-full min-h-[80px] resize-none text-sm border border-gray-200 rounded-lg p-3 outline-none focus:border-indigo-400" />
 
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-500">字数限制：{wordLimit}字</span>
@@ -85,18 +74,19 @@ export default function GenerateNoticePage() {
         </div>
 
         <div className="flex gap-2 pt-2 border-t border-gray-100">
-          <button onClick={() => handleAction("generate")} disabled={generating || !subject.trim()} className="btn-primary flex items-center gap-1.5 text-sm px-4 py-2">
+          <button onClick={() => handleAction("generate")} disabled={generating || !points.trim()} className="btn-primary flex items-center gap-1.5 text-sm px-4 py-2">
             <Sparkles className="w-4 h-4" />{generating && action === "generate" ? "生成中..." : "生成通知"}
           </button>
-          <button onClick={() => handleAction("condense")} disabled={generating || !subject.trim()} className="btn-ghost flex items-center gap-1.5 text-sm border border-gray-200 rounded-lg px-3 py-2">
-            <Shrink className="w-4 h-4" />{generating && action === "condense" ? "压缩中..." : "压缩"}
-          </button>
-          <button onClick={() => handleAction("colloquial")} disabled={generating || !subject.trim()} className="btn-ghost flex items-center gap-1.5 text-sm border border-gray-200 rounded-lg px-3 py-2">
+          <button onClick={() => handleAction("colloquial")} disabled={generating || !points.trim()} className="btn-ghost flex items-center gap-1.5 text-sm border border-gray-200 rounded-lg px-3 py-2">
             <MessageCircle className="w-4 h-4" />{generating && action === "colloquial" ? "转换中..." : "口语化"}
+          </button>
+          <button onClick={() => handleAction("condense")} disabled={generating || !points.trim()} className="btn-ghost flex items-center gap-1.5 text-sm border border-gray-200 rounded-lg px-3 py-2">
+            <Shrink className="w-4 h-4" />{generating && action === "condense" ? "压缩中..." : "压缩"}
           </button>
         </div>
       </div>
 
+      {error && <div className="card p-4 mb-6 border-red-100 bg-red-50"><p className="text-sm text-red-600">{error}</p></div>}
       {generating && (
         <div className="card p-6 animate-fade-in">
           <div className="flex items-center gap-3">
@@ -140,9 +130,7 @@ export default function GenerateNoticePage() {
               </button>
             </div>
           </div>
-          <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-            <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}>{result}</pre>
-          </div>
+          <div className="text-gray-700 leading-relaxed whitespace-pre-wrap" style={{ fontFamily: "inherit" }}>{(result || "").replace(/\*+/g, "").replace(/^#{1,6}\s?/gm, "").replace(/`/g, "")}</div>
         </div>
       )}
     </div>

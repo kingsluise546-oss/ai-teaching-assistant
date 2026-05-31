@@ -429,6 +429,7 @@ export function writeCommentPrompt(params: {
   length: string;
   style: string;
   previous?: string[];
+  remark?: string;
 }) {
   const gradeGuide: Record<string, string> = {
     小学: "语气亲切稚趣，用比喻和小故事鼓励，称呼用「你」开头",
@@ -460,15 +461,18 @@ export function writeCommentPrompt(params: {
     system: `你是一位经验丰富的${params.grade}班主任，正在撰写学生学期评语。
 
 【基本要求】
-1. 每人一条，编号列出，评语之间空一行
+1. 每人一条，编号列出，评语之间空一行。直接输出评语，禁止任何开场白（如"好的""以下是"）
 2. 评语长度：${params.length}
 3. 风格：${styleGuide[params.style] || params.style}
 4. 年级语气：${gradeGuide[params.grade] || ""}
 5. 内容结构：优点肯定 + 具体表现 + 成长建议
 
-【学生画像要求】
+【学生画像分配】
+名单中括号内为该学生的画像标签（如小A（进步型+内向型）），请严格按每个学生分配的画像来撰写评语，不同学生要有明确区分度。
+画像说明：
 ${params.profiles.map((p) => `- ${p}：${profileGuide[p] || ""}`).join("\n")}
 
+${params.remark ? `\n【补充说明】${params.remark}` : ""}
 ${repeatRule}`,
     messages: [{ role: "user" as const, content: `请为以下学生生成评语：\n${params.names}` }],
   };
@@ -502,7 +506,7 @@ export function generateNoticePrompt(params: {
 1. 任务：${actionGuide[params.action || "generate"]}
 2. 对象：${params.audience}（${audienceGuide[params.audience] || ""}）
 3. 长度：${params.wordLimit ? `控制在${params.wordLimit}字以内` : "简洁完整"}
-4. 格式：直接输出通知正文，无需额外说明。结构：称呼 → 正文（分条列出）→ 温馨提示 → 落款
+4. 格式：直接输出通知正文，无需额外说明。结构：称呼 → 正文（分条列出）→ 温馨提示。禁止输出落款、署名。日期只在用户明确提供时才写，不得自己编造
 
 【输出规则】
 - 可直接复制到微信群或 Word，不使用 markdown 格式

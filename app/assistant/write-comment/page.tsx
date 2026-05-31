@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { ArrowLeft, Sparkles, Copy, Check, Heart } from "lucide-react";
@@ -10,14 +10,13 @@ import { writeCommentPrompt } from "@/lib/prompts";
 
 const PROFILES = ["优秀型", "进步型", "潜力型", "内向型", "活跃型", "待提升型"];
 const GRADES = ["小学", "初中", "高中"];
-const LENGTHS = ["简短版（50字）", "标准版（100字）", "详细版（150字）"];
 const STYLES = ["鼓励型", "正式型", "温暖型", "班主任型"];
 
 export default function WriteCommentPage() {
   const router = useRouter();
   const [grade, setGrade] = useState("初中");
   const [profiles, setProfiles] = useState<string[]>(["进步型"]);
-  const [length, setLength] = useState("标准版（100字）");
+  const [wordLimit, setWordLimit] = useState(100);
   const [style, setStyle] = useState("鼓励型");
   const [count, setCount] = useState(5);
   const [generating, setGenerating] = useState(false);
@@ -26,6 +25,36 @@ export default function WriteCommentPage() {
   const [lastId, setLastId] = useState<string | null>(null);
   const [favorited, setFavorited] = useState(false);
   const [previousComments, setPreviousComments] = useState<string[]>([]);
+  const [remark, setRemark] = useState("");
+
+  // 互斥画像对：不同时分配给同一人
+  const INCOMPATIBLE: Record<string, string> = { "内向型": "活跃型", "活跃型": "内向型", "优秀型": "待提升型", "待提升型": "优秀型" };
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  // 从备注中检测「所有都加X型」指令
+  const forceProfile = useMemo(() => {
+    const m = remark.match(/所有\S*都?\s*[加添]?[上入]?\s*(.{2,3}型)/);
+    return m ? m[1] : null;
+  }, [remark]);
+
+  const assignmentPreview = useMemo(() => {
+    if (profiles.length === 0) return [];
+    return Array.from({ length: count }, (_, i) => {
+      const name = `小${letters[i % 26]}${i >= 26 ? Math.floor(i / 26) : ""}`;
+      const n = 1 + Math.floor(Math.random() * Math.min(2, profiles.length));
+      const shuffled = [...profiles].sort(() => Math.random() - 0.5);
+      const assigned: string[] = [];
+      // 备注强制型优先加入
+      if (forceProfile && profiles.includes(forceProfile) && !assigned.some(a => INCOMPATIBLE[a] === forceProfile)) {
+        assigned.push(forceProfile);
+      }
+      for (const p of shuffled) {
+        if (assigned.length >= n + (forceProfile ? 1 : 0)) break;
+        if (!assigned.some(a => INCOMPATIBLE[a] === p) && p !== forceProfile) assigned.push(p);
+      }
+      if (assigned.length === 0) assigned.push(shuffled[0]);
+      return `${name}（${assigned.join("+")}）`;
+    });
+  }, [count, profiles, forceProfile]);
 
   const toggleProfile = (p: string) => {
     setProfiles((prev) => prev.includes(p) ? prev.filter((k) => k !== p) : [...prev, p]);
@@ -34,12 +63,7 @@ export default function WriteCommentPage() {
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      // 生成化名：小A、小B... 小Z, 小A1, 小B1...
-      const names = Array.from({ length: count }, (_, i) => {
-        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        return `小${letters[i % 26]}${i >= 26 ? Math.floor(i / 26) : ""}`;
-      }).join("\n");
-      const prompt = writeCommentPrompt({ names, grade, profiles, length, style, previous: previousComments });
+      const prompt = writeCommentPrompt({ names: assignmentPreview.join("\n"), grade, profiles, length: `${wordLimit}字以内`, style, previous: previousComments, remark });
       const content = await callAI(prompt);
       setResult(content);
       setPreviousComments((prev) => [...prev, content]);
@@ -58,7 +82,7 @@ export default function WriteCommentPage() {
 
   const handleCopy = async () => {
     if (!result) return;
-    await navigator.clipboard.writeText(result);
+    await navigator.clipboard.writeText((result || "").replace(/\*+/g, "").replace(/^#{1,6}\s?/gm, "").replace(/`/g, ""));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -94,9 +118,11 @@ export default function WriteCommentPage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-2">评语长度</label>
-            <select value={length} onChange={(e) => setLength(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-              {LENGTHS.map(l => <option key={l}>{l}</option>)}
-            </select>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-500">30</span>
+              <input type="range" min={30} max={200} step={10} value={wordLimit} onChange={(e) => setWordLimit(Number(e.target.value))} className="flex-1" />
+              <span className="text-xs text-gray-500">{wordLimit}字</span>
+            </div>
           </div>
         </div>
 
@@ -118,16 +144,21 @@ export default function WriteCommentPage() {
           </div>
         </div>
 
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-2">备注 <span className="text-gray-300">（选填）</span></label>
+          <input value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="如：关注数学进步、这学期换了班主任..." className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400" />
+        </div>
+
         <div className="pt-2 flex items-center justify-between border-t border-gray-100">
           <span className="text-xs text-gray-300">
-            {count} 人（小A ~ 小{String.fromCharCode(64 + Math.min(count, 26))}{count > 26 ? Math.floor(count / 26) : ""}）· {profiles.length} 个画像
-            {previousComments.length > 0 ? ` · 已生成${previousComments.length}批` : ""}
+            {profiles.length > 0 ? assignmentPreview.slice(0, 3).join(" · ") + (count > 3 ? ` …等${count}人` : "") : `请先勾选画像`}
+            {previousComments.length > 0 ? ` | 已生成${previousComments.length}批` : ""}
           </span>
           <button
             onClick={handleGenerate}
-            disabled={generating}
+            disabled={generating || profiles.length === 0}
             className={`btn-primary flex items-center gap-2 text-sm ${
-              generating
+              generating || profiles.length === 0
                 ? "opacity-50 cursor-not-allowed"
                 : ""
             }`}
@@ -181,9 +212,7 @@ export default function WriteCommentPage() {
               </button>
             </div>
           </div>
-          <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-            {result}
-          </div>
+          <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: (result || "").replace(/\*+/g, "").replace(/^#{1,6}\s?/gm, "").replace(/`/g, "").replace(/^(好的|以下是|为您|根据要求|按照您)[\s\S]*?\n---\n?/gm, "").replace(/\n/g, "<br/>") }} />
         </div>
       )}
     </div>
